@@ -8,7 +8,22 @@ export const customSelectStyles: StylesConfig = {
   input: (provided) => {
     return {
       ...provided,
+      margin: '0px',
+      padding: '0px',
       color: 'var(--text-normal)',
+    };
+  },
+  valueContainer: (provided) => {
+    return {
+      ...provided,
+      height: '30px',
+      padding: '0 6px',
+    };
+  },
+  indicatorsContainer: (provided) => {
+    return {
+      ...provided,
+      height: '30px',
     };
   },
   singleValue: (provided) => {
@@ -38,6 +53,8 @@ export const customSelectStyles: StylesConfig = {
   control: (provided, state) => {
     return {
       ...provided,
+      minHeight: '30px',
+      height: '30px',
       backgroundColor: 'var(--background-modifier-form-field)',
       color: 'var(--text-normal)',
       borderColor: state.isFocused

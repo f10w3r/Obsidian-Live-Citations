@@ -16,7 +16,7 @@ export default {
     'Select a CSL file located on your computer',
   'Fallback path to Pandoc': 'Fallback path to Pandoc',
   "The absolute path to the Pandoc executable. This plugin will attempt to locate pandoc for you and will use this path if it fails to do so. To find pandoc, use the output of 'which pandoc' in a terminal on Mac/Linux or 'Get-Command pandoc' in powershell on Windows.":
-    "The absolute path to the Pandoc executable. This plugin will attempt to locate pandoc for you and will use this path if it fails to do so. To find pandoc, use the output of 'which pandoc' in a terminal on Mac/Linux or 'Get-Command pandoc' in powershell on Windows.",
+    'The absolute path to the Pandoc executable.',
   'Attempt to find Pandoc automatically':
     'Attempt to find Pandoc automatically',
   'Unable to find pandoc on your system. If it is installed, please manually enter a path.':
@@ -82,4 +82,42 @@ export default {
   // src/view.ts
   'Open literature note': 'Open literature note',
   'Open in Zotero': 'Open in Zotero',
+  
+  // Newly added for simplified settings
+  'Bibliography source': 'Bibliography source',
+  'Choose where to pull your bibliography from.': 'Choose where to pull your bibliography from.',
+  'Bibliography file': 'Bibliography file',
+  'Zotero (Better BibTeX)': 'Zotero (Better BibTeX)',
+  'Zotero libraries': 'Zotero libraries',
+  'Select which libraries to include in bibliography.': 'Select which libraries to include in bibliography.',
+  'Select libraries': 'Select libraries',
+  'Select Zotero Libraries': 'Select Zotero Libraries',
+  'Citation style source': 'Citation style source',
+  'Choose how to specify the citation style.': 'Choose how to specify the citation style.',
+  'Search online CSL database': 'Search online CSL database',
+  'Custom local CSL file': 'Custom local CSL file',
+  
+  // Further simplified layout updates
+  'Bibliography': 'Bibliography',
+  'Select a local file or connect to Zotero.': 'Select a local file or connect to Zotero.',
+  'Select a local file or search online.': 'Select a local file or search online.',
+  'BibTex File': 'BibTex File',
+  'CSL File': 'CSL File',
+  'Rendering': 'Rendering',
+  'Configure how citations are rendered in the editor.': 'Configure how citations are rendered in the editor.',
+  'In editor': 'In editor',
+  'Path to file': 'Path to file',
+  'Path to BibTex file': 'Path to BibTex file',
+  'Path to CSL file': 'Path to CSL file',
+  'Disconnected': 'Disconnected',
+  'Libraries': 'Libraries',
+  'Select online or local CSL file. Can be overridden via "csl" or "lang" in frontmatter.': 'Select online or local CSL file. Can be overridden via "csl" or "lang" in frontmatter.',
+  'Search': 'Search',
+  'Custom': 'Custom',
+  'Path to CSL': 'Path to CSL',
+  'Zotero settings': 'Zotero settings',
+  'Use 24119 for Juris-M. Select which libraries to include.': 'Use 24119 for Juris-M. Select which libraries to include.',
+  'Port': 'Port',
+  'Type to search CSL style language': 'Type to search CSL style language',
+  'Lang...': 'Lang...',
 };

@@ -291,7 +291,7 @@ body {
 }
 
 .pwc-multiselect {
-  width: 320px;
+  width: 100%;
   text-align: left;
   font-size: var(--font-ui-small);
 }

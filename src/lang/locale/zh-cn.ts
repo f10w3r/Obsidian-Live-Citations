@@ -1,3 +1,44 @@
 // 简体中文
 
-export default {};
+export default {
+  // 新增的简化设置项翻译
+  'Bibliography source': '文献库来源',
+  'Choose where to pull your bibliography from.': '选择从哪里拉取你的参考文献库。',
+  'Bibliography file': '文献库文件',
+  'Zotero (Better BibTeX)': 'Zotero (Better BibTeX)',
+  'Zotero libraries': 'Zotero 文献库',
+  'Select which libraries to include in bibliography.': '选择要包含在参考文献列表中的文献库。',
+  'Select libraries': '选择文献库',
+  'Select Zotero Libraries': '选择 Zotero 文献库',
+  'Citation style source': '引文样式来源',
+  'Choose how to specify the citation style.': '选择如何指定引文样式（CSL）。',
+  'Search online CSL database': '搜索在线 CSL 数据库',
+  'Custom local CSL file': '自定义本地 CSL 文件',
+
+  // Further simplified layout updates
+  'Bibliography': '参考文献设置',
+  'Select a local file or connect to Zotero.': '选择本地文献库文件，或通过 Zotero 拉取。',
+  'Select a local file or search online.': '选择本地 CSL 文件，或在在线样式库中搜索。',
+  'BibTex File': '本地文献库 (BibTex)',
+  'CSL File': '本地 CSL',
+  'Rendering': '渲染设置',
+  'Configure how citations are rendered in the editor.': '配置引文在编辑器中的渲染方式。',
+  'In editor': 'In editor',
+  'Path to file': '文件路径',
+  'Path to BibTex file': 'BibTex 文件路径',
+  'Path to CSL file': 'CSL 文件路径',
+  'Disconnected': '未连接',
+  'Libraries': '文献库',
+  'Select online or local CSL file. Can be overridden via "csl" or "lang" in frontmatter.': '选择在线搜索或本地 CSL 样式文件。可在 frontmatter 中通过 "csl" 或 "lang" 覆盖。',
+  'Search': '在线搜索',
+  'Custom': '自定义文件',
+  'Path to CSL': 'CSL 文件路径',
+  'Fallback path to Pandoc': 'Pandoc 后备路径',
+  "The absolute path to the Pandoc executable. This plugin will attempt to locate pandoc for you and will use this path if it fails to do so. To find pandoc, use the output of 'which pandoc' in a terminal on Mac/Linux or 'Get-Command pandoc' in powershell on Windows.":
+    'Pandoc 可执行文件的绝对路径。',
+  'Zotero settings': 'Zotero 设置',
+  'Use 24119 for Juris-M. Select which libraries to include.': '如果你使用 Juris-M 请填 24119。请选择要同步的文献库。',
+  'Port': '端口',
+  'Type to search CSL style language': '输入以搜索 CSL 样式语言',
+  'Lang...': '语言...',
+};
