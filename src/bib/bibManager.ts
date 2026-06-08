@@ -263,7 +263,6 @@ export class BibManager {
       try {
         const bib = await bibToCSL(
           settings.bibliography,
-          this.plugin.settings.pathToPandoc,
           getVaultRoot
         );
         bibCache = new Map();
@@ -306,7 +305,6 @@ export class BibManager {
     if (!fromCache || this.bibCache.size === 0) {
       const bib = await bibToCSL(
         settings.pathToBibliography,
-        settings.pathToPandoc,
         getVaultRoot
       );
 

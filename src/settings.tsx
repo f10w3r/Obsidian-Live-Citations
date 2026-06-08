@@ -1,5 +1,4 @@
-import { Notice, PluginSettingTab, Setting, TextComponent, Modal, App } from 'obsidian';
-import which from 'which';
+import { Notice, PluginSettingTab, Setting, Modal, App } from 'obsidian';
 
 import { t } from './lang/helpers';
 import ReferenceList from './main';
@@ -19,7 +18,6 @@ import { ZoteroLibraryModal } from './settings/ZoteroLibraryModal';
 import { DEFAULT_ZOTERO_PORT, isZoteroRunning } from './bib/helpers';
 
 export const DEFAULT_SETTINGS: ReferenceListSettings = {
-  pathToPandoc: '',
   tooltipDelay: 400,
   zoteroGroups: [],
   renderCitations: true,
@@ -35,7 +33,6 @@ export interface ZoteroGroup {
 }
 
 export interface ReferenceListSettings {
-  pathToPandoc: string;
   pathToBibliography?: string;
 
   cslStyleURL?: string;
@@ -68,64 +65,6 @@ export class ReferenceListSettingsTab extends PluginSettingTab {
     const { containerEl } = this;
 
     containerEl.empty();
-
-    new Setting(containerEl)
-      .setName(t('Fallback path to Pandoc'))
-      .setDesc(
-        t(
-          "The absolute path to the Pandoc executable. This plugin will attempt to locate pandoc for you and will use this path if it fails to do so. To find pandoc, use the output of 'which pandoc' in a terminal on Mac/Linux or 'Get-Command pandoc' in powershell on Windows."
-        )
-      )
-      .then((setting) => {
-        setting.infoEl.style.whiteSpace = 'nowrap';
-        setting.infoEl.style.flexShrink = '0';
-        setting.infoEl.style.flex = '0 0 auto';
-        setting.controlEl.style.flexWrap = 'wrap';
-        setting.controlEl.style.rowGap = '10px';
-
-        let input: TextComponent;
-        setting.addText((text) => {
-          text.inputEl.style.width = '100%';
-          text.inputEl.style.maxWidth = '362px';
-          text.inputEl.style.order = '2';
-          input = text;
-          text.setValue(this.plugin.settings.pathToPandoc).onChange((value) => {
-            this.plugin.settings.pathToPandoc = value;
-            this.plugin.saveSettings();
-          });
-        });
-
-        setting.addExtraButton((b) => {
-          b.extraSettingsEl.style.order = '1';
-          b.setIcon('magnifying-glass');
-          b.setTooltip(t('Attempt to find Pandoc automatically'));
-          b.onClick(() => {
-            which('pandoc')
-              .then((pathToPandoc) => {
-                if (pathToPandoc) {
-                  input.setValue(pathToPandoc);
-
-                  this.plugin.settings.pathToPandoc = pathToPandoc;
-                  this.plugin.saveSettings();
-                } else {
-                  new Notice(
-                    t(
-                      'Unable to find pandoc on your system. If it is installed, please manually enter a path.'
-                    )
-                  );
-                }
-              })
-              .catch((e) => {
-                new Notice(
-                  t(
-                    'Unable to find pandoc on your system. If it is installed, please manually enter a path.'
-                  )
-                );
-                console.error(e);
-              });
-          });
-        });
-      });
 
     const bibSetting = new Setting(containerEl)
       .setName(t('Bibliography'))

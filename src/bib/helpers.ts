@@ -1,4 +1,4 @@
-import { execa } from 'execa';
+import { BibLatexParser, CSLExporter } from 'biblatex-csl-converter';
 import fs from 'fs';
 import path from 'path';
 import https from 'https';
@@ -32,7 +32,6 @@ export function getBibPath(bibPath: string, getVaultRoot?: () => string) {
 
 export async function bibToCSL(
   bibPath: string,
-  pathToPandoc: string,
   getVaultRoot?: () => string
 ): Promise<PartialCSLEntry[]> {
   bibPath = getBibPath(bibPath, getVaultRoot);
@@ -51,23 +50,22 @@ export async function bibToCSL(
     });
   }
 
-  if (!pathToPandoc) {
-    throw new Error('bibToCSL: path to pandoc is required for non CSL files.');
-  }
+  // 纯 JS 解析，不需要外部 pandoc 可执行文件
+  const content = fs.readFileSync(bibPath, 'utf-8');
+  const parser = new BibLatexParser(content, {
+    processUnexpected: true,
+    processUnknown: true,
+  });
+  const bibResult = parser.parse();
+  const exporter = new CSLExporter(bibResult.entries, bibResult.groups);
+  const cslMap = exporter.parse();
 
-  if (!fs.existsSync(pathToPandoc)) {
-    throw new Error(`bibToCSL: cannot access pandoc at '${pathToPandoc}'.`);
-  }
-
-  const args = [bibPath, '-t', 'csljson', '--quiet'];
-
-  const res = await execa(pathToPandoc, args);
-
-  if (res.stderr) {
-    throw new Error(`bibToCSL: ${res.stderr}`);
-  }
-
-  return JSON.parse(res.stdout);
+  // CSLExporter 输出的 id 是内部数字 key，需替换为实际的 citekey
+  return Object.keys(cslMap).map((key) => {
+    const entry = cslMap[key];
+    const citekey = bibResult.entries[key]?.entry_key ?? entry.id;
+    return { ...entry, id: citekey } as PartialCSLEntry;
+  });
 }
 
 export async function getCSLLocale(

@@ -7,7 +7,6 @@ import {
   debounce,
   setIcon,
 } from 'obsidian';
-import which from 'which';
 
 import {
   citeKeyCacheField,
@@ -24,7 +23,7 @@ import {
 } from './settings';
 import { TooltipManager } from './tooltip';
 import { ReferenceListView, viewType } from './view';
-import { PromiseCapability, fixPath, getVaultRoot } from './helpers';
+import { PromiseCapability, getVaultRoot } from './helpers';
 import path from 'path';
 import { BibManager } from './bib/bibManager';
 import { CiteSuggest } from './citeSuggest/citeSuggest';
@@ -79,22 +78,8 @@ export default class ReferenceList extends Plugin {
       editorTooltipHandler(this.tooltipManager),
     ]);
 
-    // No need to block execution
-    fixPath().then(async () => {
-      if (!this.settings.pathToPandoc) {
-        try {
-          // Attempt to find if/where pandoc is located on the user's machine
-          const pathToPandoc = await which('pandoc');
-          this.settings.pathToPandoc = pathToPandoc;
-          this.saveSettings();
-        } catch {
-          // We can ignore any errors here
-        }
-      }
-
-      this.initPromise.resolve();
-      this.app.workspace.trigger('parse-style-settings');
-    });
+    this.initPromise.resolve();
+    this.app.workspace.trigger('parse-style-settings');
 
     this.addCommand({
       id: 'focus-reference-list-view',
