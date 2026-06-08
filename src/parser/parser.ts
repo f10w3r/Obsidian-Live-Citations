@@ -303,12 +303,26 @@ export function getCitations(
     suppressAuthor = false;
 
     cites.push(cite);
+    key = undefined;
   };
 
   for (let i = 0; i < segments.length; i++) {
     const seg = segments[i];
     switch (seg.type) {
       case SegmentType.at:
+        if (key) {
+          const tempPrefix = prefix;
+          prefix = undefined;
+          push();
+          prefix = tempPrefix;
+          suffix = undefined;
+          locator = undefined;
+          label = undefined;
+          infix = undefined;
+          onlyAuthor = false;
+          suppressAuthor = false;
+          composite = false;
+        }
         if (i === 0) {
           composite = true;
         }
