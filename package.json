@@ -1,6 +1,6 @@
 {
   "name": "obsidian-sample-plugin",
-  "version": "2.0.25",
+  "version": "1.0.0",
   "description": "This is a sample plugin for Obsidian (https://obsidian.md)",
   "main": "main.js",
   "scripts": {
@@ -17,7 +17,7 @@
     "release": "git commit -m $npm_package_version && git tag $npm_package_version && git push && git push --tags"
   },
   "keywords": [],
-  "author": "",
+  "author": "Miguel Fumin Li",
   "license": "MIT",
   "devDependencies": {
     "@babel/core": "7.17.9",
