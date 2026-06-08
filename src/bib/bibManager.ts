@@ -145,7 +145,7 @@ export class BibManager {
   engine: any;
 
   zCitekeyToLinks: Map<string, string> = new Map();
-  zCitekeyToPDFLinks: Map<string, string[]> = new Map();
+  zCitekeyToPDFLinks: Map<string, { path: string; select?: string }[]> = new Map();
 
   watcherCache: Map<string, FSWatcher> = new Map();
 
@@ -793,10 +793,10 @@ export class BibManager {
             if (key && link) {
               this.zCitekeyToLinks.set(key, link);
               if (item.attachments?.length) {
-                const attLinks: string[] = [];
+                const attLinks: { path: string; select?: string }[] = [];
                 for (const att of item.attachments) {
                   if (/\.pdf$/.test(att.path)) {
-                    attLinks.push(att.path);
+                    attLinks.push({ path: att.path, select: att.select });
                   }
                 }
                 if (attLinks.length) {
@@ -874,15 +874,23 @@ export class BibManager {
             });
           }
           if (zPDFLinks) {
-            zPDFLinks.forEach((link) => {
+            zPDFLinks.forEach((att) =>
               div.createDiv('clickable-icon', (div) => {
                 setIcon(div, 'lucide-file-text');
-                div.setAttr('aria-label', path.parse(link).base);
+                div.setAttr('aria-label', path.parse(att.path).base);
                 div.onClickEvent(() => {
-                  activeWindow.open(`file://${encodeURI(link)}`, '_blank');
+                  if (att.select) {
+                    // Extract the Zotero item key from the select URL and open via Zotero
+                    // select URL format: zotero://select/library/items/ITEMKEY
+                    const itemKey = att.select.split('/').pop();
+                    activeWindow.open(`zotero://open-pdf/library/items/${itemKey}`, '_blank');
+                  } else {
+                    // Fallback: open the PDF file directly
+                    activeWindow.open(`file://${encodeURI(att.path)}`, '_blank');
+                  }
                 });
-              });
-            });
+              })
+            );
           }
         });
       }
