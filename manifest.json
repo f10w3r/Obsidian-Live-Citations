@@ -1,7 +1,7 @@
 {
 	"id": "live-citations",
 	"name": "Live Citations",
-	"version": "0.9.0",
+	"version": "0.9.1",
 	"minAppVersion": "0.15.0",
 	"description": "Live formatted bibliography and reference list for Pandoc citations in the sidebar. Supports BibTeX, CSL, and Zotero integration.",
 	"author": "Miguel Li",
