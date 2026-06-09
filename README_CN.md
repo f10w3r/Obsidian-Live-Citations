@@ -1,5 +1,7 @@
 # Live Citations
 
+[English](./README.md)
+
 轻量级学术写作的 Obsidian 插件。在侧边栏实时预览和显示 Pandoc 格式引用（例如 `[@citekey]`）的参考文献列表。
 
 ## 功能特性

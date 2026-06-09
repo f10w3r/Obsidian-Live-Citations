@@ -1,5 +1,7 @@
 # Live Citations
 
+[简体中文](./README_CN.md)
+
 An Obsidian plugin for lightweight academic writing. Displays real-time formatted bibliographies and reference lists in the sidebar for Pandoc-style citations (e.g. `[@citekey]`).
 
 ## Features
