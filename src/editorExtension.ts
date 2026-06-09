@@ -208,8 +208,24 @@ export const citeKeyPlugin = ViewPlugin.fromClass(
 
           if (isLivePreview) {
             if (rendered) {
-              const start = from + match[0].from;
-              const end = from + match[match.length - 1].to;
+              let start = from + match[0].from;
+              let end = from + match[match.length - 1].to;
+              
+              const cleanVal = rendered.val.replace(/<[^>]*>/g, '').trim();
+              const hasFullWidthStart = cleanVal.startsWith('（') || cleanVal.startsWith('［');
+              const hasFullWidthEnd = cleanVal.endsWith('）') || cleanVal.endsWith('］');
+              
+              if (hasFullWidthStart) {
+                while (start > 0 && /\s/.test(view.state.sliceDoc(start - 1, start))) {
+                  start--;
+                }
+              }
+              if (hasFullWidthEnd) {
+                while (end < view.state.doc.length && /\s/.test(view.state.sliceDoc(end, end + 1))) {
+                  end++;
+                }
+              }
+
               const center = Math.round((start + end) / 2);
 
               let linkText: string;

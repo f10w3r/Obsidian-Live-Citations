@@ -131,6 +131,8 @@ export default {
   'Body font size': 'Body font size',
   'Line spacing': 'Line spacing',
   'Include URLs in reference list': 'Include URLs in reference list',
+  'Linked citations': 'Linked citations',
+  'Link in-text citations to the bibliography list at the end of the document': 'Link in-text citations to the bibliography list at the end of the document',
   'Replace link text with icons.': 'Replace link text with icons.',
   'Render formatted citations in live preview mode.': 'Render formatted citations in live preview mode.',
   'Render formatted citations in reading mode.': 'Render formatted citations in reading mode.',

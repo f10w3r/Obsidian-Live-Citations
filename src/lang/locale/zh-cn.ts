@@ -52,6 +52,8 @@ export default {
   'Body font size': '正文字号',
   'Line spacing': '行间距',
   'Include URLs in reference list': '引用列表是否添加url',
+  'Linked citations': '内文引用超链接',
+  'Link in-text citations to the bibliography list at the end of the document': '将文档内文引用与末尾参考文献列表的条目通过超链接关联起来',
   'Replace link text with icons.': '用图标替换链接文本以节省空间。',
   'Render formatted citations in live preview mode.': '在实时预览模式下渲染引文。',
   'Render formatted citations in reading mode.': '在阅读模式下渲染引文。',

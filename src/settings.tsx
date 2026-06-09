@@ -19,6 +19,7 @@ export const DEFAULT_SETTINGS: ReferenceListSettings = {
   exportFontSize: 12,
   exportLineSpacing: 1.15,
   exportIncludeUrls: false,
+  exportLinkedCitations: true,
   pullFromZotero: true,
   zoteroPort: DEFAULT_ZOTERO_PORT,
   hideLinks: true,
@@ -61,6 +62,7 @@ export interface ReferenceListSettings {
   exportFontSize?: number;
   exportLineSpacing?: number;
   exportIncludeUrls?: boolean;
+  exportLinkedCitations?: boolean;
 }
 
 export class ReferenceListSettingsTab extends PluginSettingTab {
@@ -427,6 +429,19 @@ class ExportSettingsModal extends Modal {
           .setValue(!!this.plugin.settings.exportIncludeUrls)
           .onChange((value) => {
             this.plugin.settings.exportIncludeUrls = value;
+            this.plugin.saveSettings();
+          });
+      });
+
+    // 4. Linked citations
+    new Setting(contentEl)
+      .setName(t('Linked citations'))
+      .setDesc(t('Link in-text citations to the bibliography list at the end of the document'))
+      .addToggle((toggle) => {
+        toggle
+          .setValue(this.plugin.settings.exportLinkedCitations ?? true)
+          .onChange((value) => {
+            this.plugin.settings.exportLinkedCitations = value;
             this.plugin.saveSettings();
           });
       });
