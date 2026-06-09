@@ -68,7 +68,7 @@ export default class ReferenceList extends Plugin {
             try {
               const groups = await getZUserGroups(this.settings.zoteroPort);
               if (groups && groups.length > 0) {
-                this.settings.zoteroGroups = groups.map(g => ({ id: g.id, name: g.name }));
+                this.settings.zoteroGroups = [{ id: groups[0].id, name: groups[0].name }];
                 await this.saveData(this.settings);
               }
             } catch (e) {
