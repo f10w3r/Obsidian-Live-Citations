@@ -7,6 +7,7 @@ import {
   debounce,
   setIcon,
   Platform,
+  requestUrl,
 } from 'obsidian';
 
 import {
@@ -28,13 +29,15 @@ import { ReferenceListView, viewType } from './view';
 import { PromiseCapability, getVaultRoot } from './helpers';
 import { BibManager } from './bib/bibManager';
 import { CiteSuggest } from './citeSuggest/citeSuggest';
-import { isZoteroRunning, getZUserGroups } from './bib/helpers';
+import { isZoteroRunning, getZUserGroups, initCslDefaults } from './bib/helpers';
 
 export default class ReferenceList extends Plugin {
   settings: ReferenceListSettings;
   emitter: Events;
   tooltipManager: TooltipManager;
   cacheDir: string;
+  cslCacheDir: string;
+  localeCacheDir: string;
   bibManager: BibManager;
   _initPromise: PromiseCapability<void>;
 
@@ -58,6 +61,15 @@ export default class ReferenceList extends Plugin {
     this.cacheDir = Platform.isMobile
       ? `${this.manifest.dir}/zotero-cache`
       : require('path').join(getVaultRoot(), this.manifest.dir, 'zotero-cache');
+    this.cslCacheDir = Platform.isMobile
+      ? `${this.manifest.dir}/csl-cache`
+      : require('path').join(getVaultRoot(), this.manifest.dir, 'csl-cache');
+    this.localeCacheDir = Platform.isMobile
+      ? `${this.manifest.dir}/locale-cache`
+      : require('path').join(getVaultRoot(), this.manifest.dir, 'locale-cache');
+
+    await initCslDefaults(this.cslCacheDir, this.localeCacheDir);
+    await this.migrateLegacySettings();
     
     this.emitter = new Events();
     this.bibManager = new BibManager(this);
@@ -313,6 +325,124 @@ export default class ReferenceList extends Plugin {
     this.settings = Object.assign({}, DEFAULT_SETTINGS, loadedData);
     if (this.settings.pathToBibliography && (!loadedData || loadedData.pullFromZotero === undefined)) {
       this.settings.pullFromZotero = false;
+    }
+  }
+
+  async migrateLegacySettings() {
+    let changed = false;
+    const { settings } = this;
+
+    if (!settings.cslStyleFilename) {
+      if (settings.cslStylePath) {
+        try {
+          const path = require('path');
+          const fs = require('fs');
+          const filename = path.basename(settings.cslStylePath);
+          const destPath = Platform.isMobile
+            ? `${this.cslCacheDir}/${filename}`
+            : path.join(this.cslCacheDir, filename);
+
+          let exists = false;
+          if (Platform.isMobile) {
+            exists = await this.app.vault.adapter.exists(settings.cslStylePath);
+          } else {
+            exists = fs.existsSync(settings.cslStylePath);
+          }
+
+          if (exists) {
+            let content = '';
+            if (Platform.isMobile) {
+              content = await this.app.vault.adapter.read(settings.cslStylePath);
+              await this.app.vault.adapter.write(destPath, content);
+            } else {
+              content = fs.readFileSync(settings.cslStylePath, 'utf8');
+              fs.writeFileSync(destPath, content, 'utf8');
+            }
+            settings.cslStyleFilename = filename;
+            changed = true;
+          }
+        } catch (e) {
+          console.error('Failed migrating legacy CSL style path:', e);
+        }
+      } else if (settings.cslStyleURL) {
+        try {
+          const filename = settings.cslStyleURL.split('/').pop() || 'apa.csl';
+          const destPath = Platform.isMobile
+            ? `${this.cslCacheDir}/${filename}`
+            : require('path').join(this.cslCacheDir, filename);
+
+          let exists = false;
+          if (Platform.isMobile) {
+            exists = await this.app.vault.adapter.exists(destPath);
+          } else {
+            exists = require('fs').existsSync(destPath);
+          }
+
+          if (!exists) {
+            const res = await requestUrl({ url: settings.cslStyleURL });
+            if (res.status === 200) {
+              if (Platform.isMobile) {
+                await this.app.vault.adapter.write(destPath, res.text);
+              } else {
+                require('fs').writeFileSync(destPath, res.text, 'utf8');
+              }
+            }
+          }
+          settings.cslStyleFilename = filename;
+          changed = true;
+        } catch (e) {
+          console.error('Failed migrating legacy CSL style URL:', e);
+        }
+      } else {
+        settings.cslStyleFilename = 'apa.csl';
+        changed = true;
+      }
+    }
+
+    if (!settings.cslLangFilename) {
+      if (settings.cslLang) {
+        const filename = `locales-${settings.cslLang}.xml`;
+        const destPath = Platform.isMobile
+          ? `${this.localeCacheDir}/${filename}`
+          : require('path').join(this.localeCacheDir, filename);
+
+        let exists = false;
+        if (Platform.isMobile) {
+          exists = await this.app.vault.adapter.exists(destPath);
+        } else {
+          exists = require('fs').existsSync(destPath);
+        }
+
+        if (!exists) {
+          try {
+            const url = `https://raw.githubusercontent.com/citation-style-language/locales/master/${filename}`;
+            const res = await requestUrl({ url });
+            if (res.status === 200) {
+              if (Platform.isMobile) {
+                await this.app.vault.adapter.write(destPath, res.text);
+              } else {
+                require('fs').writeFileSync(destPath, res.text, 'utf8');
+              }
+              settings.cslLangFilename = filename;
+              changed = true;
+            }
+          } catch (e) {
+            console.error('Failed downloading legacy CSL lang locale:', e);
+          }
+        } else {
+          settings.cslLangFilename = filename;
+          changed = true;
+        }
+      }
+      
+      if (!settings.cslLangFilename) {
+        settings.cslLangFilename = 'locales-en-US.xml';
+        changed = true;
+      }
+    }
+
+    if (changed) {
+      await this.saveData(this.settings);
     }
   }
 

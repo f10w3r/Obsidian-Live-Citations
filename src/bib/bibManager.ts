@@ -244,18 +244,19 @@ export class BibManager {
     if (!settings) return this;
 
     const pluginSettings = this.plugin.settings;
-    let style =
-      settings.style ||
-      pluginSettings.cslStyleURL ||
-      'https://raw.githubusercontent.com/citation-style-language/styles/master/apa.csl';
-    let lang = settings.lang || pluginSettings.cslLang || 'en-US';
+    let style = settings.style || pluginSettings.cslStyleFilename || 'apa.csl';
+
+    const langMatch = (pluginSettings.cslLangFilename || 'locales-en-US.xml').match(/locales-(.+)\.xml/);
+    let lang = settings.lang || (langMatch ? langMatch[1] : 'en-US');
+
     let bibCache = this.bibCache;
     let fuse = this.fuse;
 
-    const isCustomStyleURL = settings.style && /^http/.test(settings.style);
-    const explicitPath = isCustomStyleURL
-      ? undefined
-      : (settings.style || pluginSettings.cslStylePath);
+    const isCustomStyleURL = settings.style && /^https?:\/\//.test(settings.style);
+    const hasPathSeparator = settings.style && (settings.style.includes('/') || settings.style.includes('\\'));
+    const explicitPath = (settings.style && !isCustomStyleURL && hasPathSeparator)
+      ? settings.style
+      : undefined;
 
     try {
       await this.getLangAndStyle(lang, {
@@ -362,15 +363,12 @@ export class BibManager {
       this.setFuse(bib);
     }
 
-    const style =
-      settings.cslStylePath ||
-      settings.cslStyleURL ||
-      'https://raw.githubusercontent.com/citation-style-language/styles/master/apa.csl';
-    const lang = settings.cslLang || 'en-US';
+    const style = settings.cslStyleFilename || 'apa.csl';
+    const langMatch = (settings.cslLangFilename || 'locales-en-US.xml').match(/locales-(.+)\.xml/);
+    const lang = langMatch ? langMatch[1] : 'en-US';
 
     await this.getLangAndStyle(lang, {
       id: style,
-      explicitPath: settings.cslStylePath,
     });
     if (!this.styleCache.has(style)) return;
 
@@ -478,15 +476,12 @@ export class BibManager {
 
     this.setFuse(bib);
 
-    const style =
-      settings.cslStylePath ||
-      settings.cslStyleURL ||
-      'https://raw.githubusercontent.com/citation-style-language/styles/master/apa.csl';
-    const lang = settings.cslLang || 'en-US';
+    const style = settings.cslStyleFilename || 'apa.csl';
+    const langMatch = (settings.cslLangFilename || 'locales-en-US.xml').match(/locales-(.+)\.xml/);
+    const lang = langMatch ? langMatch[1] : 'en-US';
 
     await this.getLangAndStyle(lang, {
       id: style,
-      explicitPath: settings.cslStylePath,
     });
     if (!this.styleCache.has(style)) return;
 
@@ -612,7 +607,7 @@ export class BibManager {
     for (const lang of langs) {
       if (!lang) continue;
       if (!this.langCache.has(lang)) {
-        await getCSLLocale(this.langCache, this.plugin.cacheDir, lang);
+        await getCSLLocale(this.langCache, this.plugin.localeCacheDir, lang);
       }
     }
   }
@@ -625,7 +620,7 @@ export class BibManager {
         res.push(
           await getCSLStyle(
             this.styleCache,
-            this.plugin.cacheDir,
+            this.plugin.cslCacheDir,
             style.id,
             style.explicitPath
           )

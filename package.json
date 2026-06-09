@@ -1,6 +1,6 @@
 {
   "name": "live-citations",
-  "version": "0.9.0",
+  "version": "0.9.1",
   "description": "Live formatted bibliography and reference list for Pandoc citations in the sidebar. Supports BibTeX, CSL, and Zotero integration.",
   "main": "main.js",
   "scripts": {

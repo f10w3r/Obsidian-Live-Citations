@@ -138,4 +138,11 @@ export default {
   'Show autocomplete list when typing citation keys.': 'Show autocomplete list when typing citation keys.',
   'Show hover tooltips for citation keys.': 'Show hover tooltips for citation keys.',
   'Delay before showing tooltips (in ms).': 'Delay before showing tooltips (in ms).',
+  'Configure citation styles and localization language.': 'Configure citation styles and localization language.',
+  'Manage': 'Manage',
+  'CSL Style Manager': 'CSL Style Manager',
+  'Citation Languages': 'Citation Languages',
+  'CSL Styles': 'CSL Styles',
+  'Active style updated': 'Active style updated',
+  'Active language updated': 'Active language updated',
 };

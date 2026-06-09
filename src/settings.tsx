@@ -5,16 +5,8 @@ import ReferenceList from './main';
 import ReactDOM from 'react-dom';
 import React from 'react';
 import { SettingItem } from './settings/SettingItem';
-import AsyncSelect from 'react-select/async';
-import {
-  NoOptionMessage,
-  customSelectStyles,
-  loadCSLLangOptions,
-  loadCSLOptions,
-} from './settings/select.helpers';
-import { cslListRaw } from './bib/cslList';
-import { langListRaw } from './bib/cslLangList';
 import { ZoteroLibraryModal } from './settings/ZoteroLibraryModal';
+import { CSLStyleManagerModal } from './settings/CSLStyleManagerModal';
 import { DEFAULT_ZOTERO_PORT, isZoteroRunning } from './bib/helpers';
 
 export const DEFAULT_SETTINGS: ReferenceListSettings = {
@@ -32,8 +24,10 @@ export const DEFAULT_SETTINGS: ReferenceListSettings = {
   hideLinks: true,
   showCitekeyTooltips: true,
   enableCiteKeyCompletion: true,
-  cslLang: 'en-GB',
+  cslLang: 'en-US',
   cslStyleURL: 'https://raw.githubusercontent.com/citation-style-language/styles/master/apa.csl',
+  cslStyleFilename: 'apa.csl',
+  cslLangFilename: 'locales-en-US.xml',
 };
 
 export interface ZoteroGroup {
@@ -49,6 +43,8 @@ export interface ReferenceListSettings {
   cslStylePath?: string;
   cslLang?: string;
   cslSource?: 'search' | 'custom';
+  cslStyleFilename?: string;
+  cslLangFilename?: string;
 
   hideLinks?: boolean;
   showCitekeyTooltips?: boolean;
@@ -230,138 +226,16 @@ export class ReferenceListSettingsTab extends PluginSettingTab {
       }
     }
 
-    const cslSource = this.plugin.settings.cslSource || 'search';
-
-    const sourceSetting = new Setting(containerEl)
+    new Setting(containerEl)
       .setName(t('Citation style'))
-      .setDesc(t('Select a local file or search online.'))
-      .addDropdown((dropdown) => {
-        dropdown.selectEl.style.order = '2';
-        dropdown.selectEl.style.width = '110px';
-        dropdown
-          .addOption('search', t('Search'))
-          .addOption('custom', t('CSL File'))
-          .setValue(cslSource)
-          .onChange((value: 'search' | 'custom') => {
-            this.plugin.settings.cslSource = value;
-            this.plugin.saveSettings(() => this.plugin.bibManager.reinit(false));
-            this.display();
+      .setDesc(t('Configure citation styles and localization language.'))
+      .addButton((button) => {
+        button
+          .setButtonText(t('Manage'))
+          .onClick(() => {
+            new CSLStyleManagerModal(this.app, this.plugin).open();
           });
       });
-
-    sourceSetting.infoEl.style.whiteSpace = 'nowrap';
-    sourceSetting.infoEl.style.flexShrink = '0';
-    sourceSetting.infoEl.style.flex = '0 0 auto';
-    sourceSetting.controlEl.style.flexWrap = 'wrap';
-    sourceSetting.controlEl.style.rowGap = '10px';
-
-    const langContainer = sourceSetting.controlEl.createDiv();
-    langContainer.style.order = '1';
-    langContainer.style.width = '100%';
-    langContainer.style.maxWidth = '180px';
-    langContainer.style.marginLeft = '5px';
-    
-    const defaultLanguage = langListRaw.find(
-      (item) => item.value === this.plugin.settings.cslLang
-    );
-
-    ReactDOM.render(
-      <AsyncSelect
-        noOptionsMessage={() => <span>{t('Type to search CSL style language')}</span>}
-        placeholder={t('Type to search CSL style language')}
-        cacheOptions
-        className="pwc-multiselect"
-        defaultValue={defaultLanguage}
-        loadOptions={loadCSLLangOptions}
-        isClearable
-        onChange={(selection: any) => {
-          this.plugin.settings.cslLang = selection?.value;
-          this.plugin.saveSettings(() =>
-            this.plugin.bibManager.reinit(false)
-          );
-        }}
-        styles={customSelectStyles}
-      />,
-      langContainer
-    );
-
-    const breakEl = sourceSetting.controlEl.createDiv();
-    breakEl.style.order = '3';
-    breakEl.style.flexBasis = '100%';
-    breakEl.style.height = '0';
-
-    if (cslSource === 'search') {
-      const searchContainer = sourceSetting.controlEl.createDiv();
-      searchContainer.style.order = '4';
-      searchContainer.style.width = '100%';
-      searchContainer.style.maxWidth = '392px';
-      searchContainer.style.marginLeft = '5px';
-      
-      const defaultStyle = cslListRaw.find(
-        (item) => item.value === this.plugin.settings.cslStyleURL
-      );
-
-      ReactDOM.render(
-        <AsyncSelect
-          noOptionsMessage={NoOptionMessage}
-          placeholder={t('Search...')}
-          cacheOptions
-          className="pwc-multiselect"
-          defaultValue={defaultStyle}
-          loadOptions={loadCSLOptions}
-          isClearable
-          onChange={(selection: any) => {
-            this.plugin.settings.cslStyleURL = selection?.value;
-            this.plugin.saveSettings(() =>
-              this.plugin.bibManager.reinit(false)
-            );
-          }}
-          styles={customSelectStyles}
-        />,
-        searchContainer
-      );
-    } else {
-      sourceSetting.addText((text) => {
-        text.inputEl.style.order = '5';
-        text.inputEl.style.width = '100%';
-        text.inputEl.style.maxWidth = '362px';
-
-        const debouncedCSLSave = debounce((value: string) => {
-          this.plugin.settings.cslStylePath = value;
-          this.plugin.saveSettings(() =>
-            this.plugin.bibManager.reinit(false)
-          );
-        }, 1000, false);
-
-        text
-          .setPlaceholder(t('Path to CSL file'))
-          .setValue(this.plugin.settings.cslStylePath)
-          .onChange((value) => {
-            debouncedCSLSave(value);
-          });
-      });
-
-      if (!Platform.isMobile) {
-        sourceSetting.addExtraButton((b) => {
-          b.extraSettingsEl.style.order = '4';
-          b.setIcon('folder');
-          b.setTooltip(t('Select a CSL file located on your computer'));
-          b.onClick(() => {
-            const path = require('electron').remote.dialog.showOpenDialogSync({
-              properties: ['openFile'],
-            });
-
-            if (path && path.length) {
-              this.plugin.settings.cslStylePath = path[0];
-              this.plugin.saveSettings(() =>
-                this.plugin.bibManager.reinit(false)
-              );
-              this.display();
-            }
-          });
-        });
-      }
-    }
 
 
 
