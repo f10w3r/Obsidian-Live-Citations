@@ -27,6 +27,11 @@ export const DEFAULT_SETTINGS: ReferenceListSettings = {
   exportFontSize: 12,
   exportLineSpacing: 1.15,
   exportIncludeUrls: false,
+  pullFromZotero: false,
+  zoteroPort: DEFAULT_ZOTERO_PORT,
+  hideLinks: false,
+  showCitekeyTooltips: true,
+  enableCiteKeyCompletion: true,
 };
 
 export interface ZoteroGroup {
