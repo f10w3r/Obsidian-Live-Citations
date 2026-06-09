@@ -1,6 +1,7 @@
 import { BibLatexParser, CSLExporter } from 'biblatex-csl-converter';
 import { CSLList, PartialCSLEntry } from './types';
 import { Platform, requestUrl } from 'obsidian';
+import { langListRaw } from './cslLangList';
 
 export const DEFAULT_ZOTERO_PORT = '23119';
 
@@ -86,161 +87,413 @@ export async function bibToCSL(
 
 export async function getCSLLocale(
   localeCache: Map<string, string>,
-  cacheDir: string,
+  localeCacheDir: string,
   lang: string
 ) {
   if (localeCache.has(lang)) {
     return localeCache.get(lang);
   }
 
-  const url = `https://raw.githubusercontent.com/citation-style-language/locales/master/locales-${lang}.xml`;
-  
+  const filename = `locales-${lang}.xml`;
+  const url = `https://raw.githubusercontent.com/citation-style-language/locales/master/${filename}`;
+  const filePath = Platform.isMobile
+    ? `${localeCacheDir}/${filename}`
+    : require('path').join(localeCacheDir, filename);
+
+  await ensureDirectory(localeCacheDir);
+
+  let exists = false;
   if (Platform.isMobile) {
-    const outpath = `${cacheDir}/locales-${lang}.xml`;
-    await ensureDirectory(cacheDir);
-    if (await app.vault.adapter.exists(outpath)) {
-      const localeData = await app.vault.adapter.read(outpath);
-      localeCache.set(lang, localeData);
-      return localeData;
-    }
-    const response = await requestUrl({ url });
-    if (response.status !== 200) {
-      throw new Error(`Error downloading locale: ${response.status}`);
-    }
-    const str = response.text;
-    await app.vault.adapter.write(outpath, str);
-    localeCache.set(lang, str);
-    return str;
+    exists = await app.vault.adapter.exists(filePath);
+  } else {
+    exists = require('fs').existsSync(filePath);
   }
 
-  // Desktop
-  const path = require('path');
-  const fs = require('fs');
-  const https = require('https');
-  const outpath = path.join(cacheDir, `locales-${lang}.xml`);
-
-  await ensureDirectory(cacheDir);
-  if (fs.existsSync(outpath)) {
-    const localeData = fs.readFileSync(outpath).toString();
+  if (exists) {
+    let localeData = '';
+    if (Platform.isMobile) {
+      localeData = await app.vault.adapter.read(filePath);
+    } else {
+      localeData = require('fs').readFileSync(filePath, 'utf8');
+    }
     localeCache.set(lang, localeData);
     return localeData;
   }
 
-  const str = await new Promise<string>((res, rej) => {
-    https.get(url, (result: any) => {
-      let output = '';
-      result.setEncoding('utf8');
-      result.on('data', (chunk: any) => (output += chunk));
-      result.on('error', (e: any) => rej(`Downloading locale: ${e}`));
-      result.on('close', () => {
-        rej(new Error('Error: cannot download locale'));
-      });
-      result.on('end', () => {
-        if (/^404: Not Found/.test(output)) {
-          rej(new Error('Error downloading locale: 404: Not Found'));
-        } else {
-          res(output);
-        }
-      });
-    });
-  });
+  // Fallback: download
+  let responseText = '';
+  try {
+    const response = await requestUrl({ url });
+    if (response.status === 200) {
+      responseText = response.text;
+      if (Platform.isMobile) {
+        await app.vault.adapter.write(filePath, responseText);
+      } else {
+        require('fs').writeFileSync(filePath, responseText, 'utf8');
+      }
+    } else {
+      throw new Error(`Status ${response.status}`);
+    }
+  } catch (e) {
+    throw new Error(`Error downloading locale: ${e.message || e}`);
+  }
 
-  fs.writeFileSync(outpath, str);
-  localeCache.set(lang, str);
-  return str;
+  localeCache.set(lang, responseText);
+  return responseText;
 }
 
 export async function getCSLStyle(
   styleCache: Map<string, string>,
-  cacheDir: string,
+  cslCacheDir: string,
   url: string,
   explicitPath?: string
 ) {
-  if (explicitPath) {
-    if (styleCache.has(explicitPath)) {
-      return styleCache.get(explicitPath);
-    }
+  const styleKey = explicitPath ?? url;
+  if (styleCache.has(styleKey)) {
+    return styleCache.get(styleKey);
+  }
 
+  // 1. If explicitPath is provided, read from it
+  if (explicitPath) {
+    let styleData = '';
     if (Platform.isMobile) {
       if (!(await app.vault.adapter.exists(explicitPath))) {
         throw new Error(`Error: retrieving citation style; Cannot find file '${explicitPath}'.`);
       }
-      const styleData = await app.vault.adapter.read(explicitPath);
-      styleCache.set(explicitPath, styleData);
-      return styleData;
+      styleData = await app.vault.adapter.read(explicitPath);
+    } else {
+      const fs = require('fs');
+      if (!fs.existsSync(explicitPath)) {
+        throw new Error(`Error: retrieving citation style; Cannot find file '${explicitPath}'.`);
+      }
+      styleData = fs.readFileSync(explicitPath, 'utf8');
     }
-
-    const fs = require('fs');
-    if (!fs.existsSync(explicitPath)) {
-      throw new Error(
-        `Error: retrieving citation style; Cannot find file '${explicitPath}'.`
-      );
-    }
-
-    const styleData = fs.readFileSync(explicitPath).toString();
-    styleCache.set(explicitPath, styleData);
+    styleCache.set(styleKey, styleData);
     return styleData;
   }
 
-  if (styleCache.has(url)) {
-    return styleCache.get(url);
+  // 2. If it's a local filename (doesn't start with http)
+  if (!/^https?:\/\//.test(url)) {
+    const path = require('path');
+    const fs = require('fs');
+    let filePath = Platform.isMobile
+      ? `${cslCacheDir}/${url}`
+      : path.join(cslCacheDir, url);
+
+    let exists = false;
+    if (Platform.isMobile) {
+      exists = await app.vault.adapter.exists(filePath);
+    } else {
+      exists = fs.existsSync(filePath);
+    }
+
+    if (!exists && !url.endsWith('.csl')) {
+      const filename = `${url}.csl`;
+      filePath = Platform.isMobile
+        ? `${cslCacheDir}/${filename}`
+        : path.join(cslCacheDir, filename);
+    }
+
+    let styleData = '';
+    if (Platform.isMobile) {
+      if (!(await app.vault.adapter.exists(filePath))) {
+        throw new Error(`Error: retrieving CSL style; Cannot find file '${filePath}'.`);
+      }
+      styleData = await app.vault.adapter.read(filePath);
+    } else {
+      if (!fs.existsSync(filePath)) {
+        throw new Error(`Error: retrieving CSL style; Cannot find file '${filePath}'.`);
+      }
+      styleData = fs.readFileSync(filePath, 'utf8');
+    }
+    styleCache.set(styleKey, styleData);
+    return styleData;
   }
 
+  // 3. Otherwise, it is a URL (fallback / compatibility)
   const fileFromURL = url.split('/').pop() ?? '';
+  const outpath = Platform.isMobile
+    ? `${cslCacheDir}/${fileFromURL}`
+    : require('path').join(cslCacheDir, fileFromURL);
+
+  await ensureDirectory(cslCacheDir);
+
+  let exists = false;
+  if (Platform.isMobile) {
+    exists = await app.vault.adapter.exists(outpath);
+  } else {
+    exists = require('fs').existsSync(outpath);
+  }
+
+  if (exists) {
+    let styleData = '';
+    if (Platform.isMobile) {
+      styleData = await app.vault.adapter.read(outpath);
+    } else {
+      styleData = require('fs').readFileSync(outpath, 'utf8');
+    }
+    styleCache.set(styleKey, styleData);
+    return styleData;
+  }
+
+  // Download URL
+  let responseText = '';
+  try {
+    const response = await requestUrl({ url });
+    if (response.status === 200) {
+      responseText = response.text;
+      if (Platform.isMobile) {
+        await app.vault.adapter.write(outpath, responseText);
+      } else {
+        require('fs').writeFileSync(outpath, responseText, 'utf8');
+      }
+    } else {
+      throw new Error(`Status ${response.status}`);
+    }
+  } catch (e) {
+    throw new Error(`Error downloading CSL: ${e.message || e}`);
+  }
+
+  styleCache.set(styleKey, responseText);
+  return responseText;
+}
+
+export interface CSLStyleInfo {
+  filename: string;
+  title: string;
+  id: string;
+}
+
+export interface LocaleInfo {
+  filename: string;
+  label: string;
+  value: string;
+}
+
+export function parseCslMetadata(content: string, filename: string): CSLStyleInfo {
+  try {
+    const parser = new DOMParser();
+    const xmlDoc = parser.parseFromString(content, 'text/xml');
+    const title = xmlDoc.getElementsByTagName('title')[0]?.textContent || filename.replace('.csl', '');
+    const id = xmlDoc.getElementsByTagName('id')[0]?.textContent || '';
+    return { filename, title, id };
+  } catch (e) {
+    return { filename, title: filename.replace('.csl', ''), id: '' };
+  }
+}
+
+export function parseLocaleMetadata(content: string, filename: string): LocaleInfo {
+  try {
+    const parser = new DOMParser();
+    const xmlDoc = parser.parseFromString(content, 'text/xml');
+    const localeEl = xmlDoc.getElementsByTagName('locale')[0];
+    const xmlLang = localeEl?.getAttribute('xml:lang') || '';
+    const found = langListRaw.find(l => l.value === xmlLang);
+    const label = found ? found.label : (xmlLang || filename.replace('.xml', ''));
+    return { filename, label, value: xmlLang };
+  } catch (e) {
+    return { filename, label: filename.replace('.xml', ''), value: '' };
+  }
+}
+
+// Download defaults
+export async function initCslDefaults(cslCacheDir: string, localeCacheDir: string): Promise<void> {
+  await ensureDirectory(cslCacheDir);
+  await ensureDirectory(localeCacheDir);
+
+  const defaultStyles = [
+    { filename: 'apa.csl', url: 'https://raw.githubusercontent.com/citation-style-language/styles/master/apa.csl' },
+    { filename: 'chicago-author-date.csl', url: 'https://raw.githubusercontent.com/citation-style-language/styles/master/chicago-author-date.csl' }
+  ];
+
+  const defaultLocales = [
+    { filename: 'locales-en-US.xml', url: 'https://raw.githubusercontent.com/citation-style-language/locales/master/locales-en-US.xml' },
+    { filename: 'locales-zh-CN.xml', url: 'https://raw.githubusercontent.com/citation-style-language/locales/master/locales-zh-CN.xml' }
+  ];
+
+  for (const style of defaultStyles) {
+    const filePath = Platform.isMobile
+      ? `${cslCacheDir}/${style.filename}`
+      : require('path').join(cslCacheDir, style.filename);
+    
+    let exists = false;
+    if (Platform.isMobile) {
+      exists = await app.vault.adapter.exists(filePath);
+    } else {
+      exists = require('fs').existsSync(filePath);
+    }
+
+    if (!exists) {
+      try {
+        const res = await requestUrl({ url: style.url });
+        if (res.status === 200) {
+          if (Platform.isMobile) {
+            await app.vault.adapter.write(filePath, res.text);
+          } else {
+            require('fs').writeFileSync(filePath, res.text, 'utf8');
+          }
+        }
+      } catch (e) {
+        console.error(`Failed to download default CSL style ${style.filename}:`, e);
+      }
+    }
+  }
+
+  for (const locale of defaultLocales) {
+    const filePath = Platform.isMobile
+      ? `${localeCacheDir}/${locale.filename}`
+      : require('path').join(localeCacheDir, locale.filename);
+
+    let exists = false;
+    if (Platform.isMobile) {
+      exists = await app.vault.adapter.exists(filePath);
+    } else {
+      exists = require('fs').existsSync(filePath);
+    }
+
+    if (!exists) {
+      try {
+        const res = await requestUrl({ url: locale.url });
+        if (res.status === 200) {
+          if (Platform.isMobile) {
+            await app.vault.adapter.write(filePath, res.text);
+          } else {
+            require('fs').writeFileSync(filePath, res.text, 'utf8');
+          }
+        }
+      } catch (e) {
+        console.error(`Failed to download default CSL locale ${locale.filename}:`, e);
+      }
+    }
+  }
+}
+
+// Get Cached Styles
+export async function getCachedStyles(cslCacheDir: string): Promise<CSLStyleInfo[]> {
+  await ensureDirectory(cslCacheDir);
+  const styles: CSLStyleInfo[] = [];
 
   if (Platform.isMobile) {
-    const outpath = `${cacheDir}/${fileFromURL}`;
-    await ensureDirectory(cacheDir);
-    if (await app.vault.adapter.exists(outpath)) {
-      const styleData = await app.vault.adapter.read(outpath);
-      styleCache.set(url, styleData);
-      return styleData;
+    const list = await app.vault.adapter.list(cslCacheDir);
+    for (const item of list.files) {
+      if (item.endsWith('.csl')) {
+        const content = await app.vault.adapter.read(item);
+        const filename = item.split('/').pop() || '';
+        styles.push(parseCslMetadata(content, filename));
+      }
     }
-    const response = await requestUrl({ url });
-    if (response.status !== 200) {
-      throw new Error(`Error downloading CSL: ${response.status}`);
+  } else {
+    const fs = require('fs');
+    const path = require('path');
+    const files = fs.readdirSync(cslCacheDir);
+    for (const file of files) {
+      if (file.endsWith('.csl')) {
+        const filePath = path.join(cslCacheDir, file);
+        const content = fs.readFileSync(filePath, 'utf8');
+        styles.push(parseCslMetadata(content, file));
+      }
     }
-    const str = response.text;
-    await app.vault.adapter.write(outpath, str);
-    styleCache.set(url, str);
-    return str;
   }
 
-  // Desktop
-  const path = require('path');
-  const fs = require('fs');
-  const https = require('https');
-  const outpath = path.join(cacheDir, fileFromURL);
+  return styles;
+}
 
-  await ensureDirectory(cacheDir);
-  if (fs.existsSync(outpath)) {
-    const styleData = fs.readFileSync(outpath).toString();
-    styleCache.set(url, styleData);
-    return styleData;
+// Get Cached Locales
+export async function getCachedLocales(localeCacheDir: string): Promise<LocaleInfo[]> {
+  await ensureDirectory(localeCacheDir);
+  const locales: LocaleInfo[] = [];
+
+  if (Platform.isMobile) {
+    const list = await app.vault.adapter.list(localeCacheDir);
+    for (const item of list.files) {
+      if (item.endsWith('.xml')) {
+        const content = await app.vault.adapter.read(item);
+        const filename = item.split('/').pop() || '';
+        locales.push(parseLocaleMetadata(content, filename));
+      }
+    }
+  } else {
+    const fs = require('fs');
+    const path = require('path');
+    const files = fs.readdirSync(localeCacheDir);
+    for (const file of files) {
+      if (file.endsWith('.xml')) {
+        const filePath = path.join(localeCacheDir, file);
+        const content = fs.readFileSync(filePath, 'utf8');
+        locales.push(parseLocaleMetadata(content, file));
+      }
+    }
   }
 
-  const str = await new Promise<string>((res, rej) => {
-    https.get(url, (result: any) => {
-      let output = '';
-      result.setEncoding('utf8');
-      result.on('data', (chunk: any) => (output += chunk));
-      result.on('error', (e: any) => rej(`Error downloading CSL: ${e}`));
-      result.on('close', () => {
-        rej(new Error('Error: cannot download CSL'));
-      });
-      result.on('end', () => {
-        try {
-          res(output);
-        } catch (e) {
-          rej(e);
-        }
-      });
-    });
-  });
+  return locales;
+}
 
-  fs.writeFileSync(outpath, str);
-  styleCache.set(url, str);
-  return str;
+// Delete Cached Style
+export async function deleteCachedStyle(cslCacheDir: string, filename: string): Promise<void> {
+  const filePath = Platform.isMobile
+    ? `${cslCacheDir}/${filename}`
+    : require('path').join(cslCacheDir, filename);
+
+  if (Platform.isMobile) {
+    if (await app.vault.adapter.exists(filePath)) {
+      await app.vault.adapter.remove(filePath);
+    }
+  } else {
+    const fs = require('fs');
+    if (fs.existsSync(filePath)) {
+      fs.unlinkSync(filePath);
+    }
+  }
+}
+
+// Delete Cached Locale
+export async function deleteCachedLocale(localeCacheDir: string, filename: string): Promise<void> {
+  const filePath = Platform.isMobile
+    ? `${localeCacheDir}/${filename}`
+    : require('path').join(localeCacheDir, filename);
+
+  if (Platform.isMobile) {
+    if (await app.vault.adapter.exists(filePath)) {
+      await app.vault.adapter.remove(filePath);
+    }
+  } else {
+    const fs = require('fs');
+    if (fs.existsSync(filePath)) {
+      fs.unlinkSync(filePath);
+    }
+  }
+}
+
+// Import Local Style file
+export async function importLocalCslFile(cslCacheDir: string, name: string, content: string): Promise<string> {
+  await ensureDirectory(cslCacheDir);
+  const filename = name.endsWith('.csl') ? name : `${name}.csl`;
+  const filePath = Platform.isMobile
+    ? `${cslCacheDir}/${filename}`
+    : require('path').join(cslCacheDir, filename);
+
+  if (Platform.isMobile) {
+    await app.vault.adapter.write(filePath, content);
+  } else {
+    require('fs').writeFileSync(filePath, content, 'utf8');
+  }
+  return filename;
+}
+
+// Import Local Locale file
+export async function importLocalLocaleFile(localeCacheDir: string, name: string, content: string): Promise<string> {
+  await ensureDirectory(localeCacheDir);
+  const filename = name.endsWith('.xml') ? name : `${name}.xml`;
+  const filePath = Platform.isMobile
+    ? `${localeCacheDir}/${filename}`
+    : require('path').join(localeCacheDir, filename);
+
+  if (Platform.isMobile) {
+    await app.vault.adapter.write(filePath, content);
+  } else {
+    require('fs').writeFileSync(filePath, content, 'utf8');
+  }
+  return filename;
 }
 
 export const defaultHeaders = {

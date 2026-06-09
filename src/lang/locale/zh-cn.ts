@@ -59,4 +59,11 @@ export default {
   'Show autocomplete list when typing citation keys.': '输入引文键时显示自动补全。',
   'Show hover tooltips for citation keys.': '鼠标悬浮在引文键上时显示提示。',
   'Delay before showing tooltips (in ms).': '显示提示延迟（毫秒）。',
+  'Configure citation styles and localization language.': '配置引文样式和语言本地化。',
+  'Manage': '管理',
+  'CSL Style Manager': 'CSL 样式管理器',
+  'Citation Languages': '引用语言 locales',
+  'CSL Styles': 'CSL 样式列表',
+  'Active style updated': '已成功更新当前引文样式',
+  'Active language updated': '已成功更新当前引文语言',
 };
