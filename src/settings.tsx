@@ -1,4 +1,4 @@
-import { Notice, PluginSettingTab, Setting, Modal, App, Platform } from 'obsidian';
+import { Notice, PluginSettingTab, Setting, Modal, App, Platform, ButtonComponent } from 'obsidian';
 
 import { t } from './lang/helpers';
 import ReferenceList from './main';
@@ -69,23 +69,23 @@ export class ReferenceListSettingsTab extends PluginSettingTab {
     const bibSetting = new Setting(containerEl)
       .setName(t('Bibliography'))
       .setDesc(t('Select a local file or connect to Zotero.'))
-    if (!Platform.isMobile) {
-      bibSetting.addDropdown((dropdown) => {
-        dropdown.selectEl.style.order = '4';
-        dropdown.selectEl.style.width = '110px';
-        dropdown
-          .addOption('file', t('BibTex File'))
-          .addOption('zotero', 'Zotero')
-          .setValue(this.plugin.settings.pullFromZotero ? 'zotero' : 'file')
-          .onChange((value) => {
-            this.plugin.settings.pullFromZotero = value === 'zotero';
-            this.plugin.saveSettings(() => {
-              this.plugin.bibManager.reinit(true);
-            });
-            this.display();
+
+    bibSetting.addDropdown((dropdown) => {
+      dropdown.selectEl.style.order = '4';
+      dropdown.selectEl.style.width = '110px';
+      dropdown
+        .addOption('file', t('BibTex File'))
+        .addOption('zotero', 'Zotero')
+        .setValue(this.plugin.settings.pullFromZotero ? 'zotero' : 'file')
+        .onChange((value) => {
+          this.plugin.settings.pullFromZotero = value === 'zotero';
+          this.plugin.saveSettings(() => {
+            this.plugin.bibManager.reinit(true);
           });
-      });
-    }
+          this.display();
+        });
+    });
+
 
 
 
@@ -95,9 +95,9 @@ export class ReferenceListSettingsTab extends PluginSettingTab {
     bibSetting.controlEl.style.flexWrap = 'wrap';
     bibSetting.controlEl.style.rowGap = '10px';
 
-    const isZoteroEnabled = !Platform.isMobile && this.plugin.settings.pullFromZotero;
+    const isZoteroSelected = this.plugin.settings.pullFromZotero;
 
-    if (!isZoteroEnabled) {
+    if (!isZoteroSelected) {
       bibSetting.addText((text) => {
         text.inputEl.style.order = '2';
         text.inputEl.style.width = '100%';
@@ -136,68 +136,79 @@ export class ReferenceListSettingsTab extends PluginSettingTab {
         });
       }
     } else {
-      let libButton: ButtonComponent;
+      if (Platform.isMobile) {
+        const tipEl = bibSetting.controlEl.createDiv();
+        tipEl.textContent = t('Using cache from desktop version');
+        tipEl.style.order = '1';
+        tipEl.style.color = 'var(--text-muted)';
+        tipEl.style.fontSize = 'var(--font-small)';
+        tipEl.style.display = 'flex';
+        tipEl.style.alignItems = 'center';
+        tipEl.style.marginRight = '10px';
+      } else {
+        let libButton: ButtonComponent;
 
-      bibSetting.addButton((button) => {
-        libButton = button;
-        button.buttonEl.style.order = '2';
-        button.buttonEl.style.width = '115px';
-        button
-          .setButtonText(t('Libraries'))
-          .onClick(() => {
-            new ZoteroLibraryModal(this.app, this.plugin).open();
-          });
-      });
+        bibSetting.addButton((button) => {
+          libButton = button;
+          button.buttonEl.style.order = '2';
+          button.buttonEl.style.width = '115px';
+          button
+            .setButtonText(t('Libraries'))
+            .onClick(() => {
+              new ZoteroLibraryModal(this.app, this.plugin).open();
+            });
+        });
 
-      const portLabel = bibSetting.controlEl.createDiv();
-      portLabel.textContent = 'API Port:';
-      portLabel.style.order = '0';
-      portLabel.style.marginRight = '4px';
-      portLabel.style.whiteSpace = 'nowrap';
-      portLabel.style.display = 'flex';
-      portLabel.style.alignItems = 'center';
+        const portLabel = bibSetting.controlEl.createDiv();
+        portLabel.textContent = 'API Port:';
+        portLabel.style.order = '0';
+        portLabel.style.marginRight = '4px';
+        portLabel.style.whiteSpace = 'nowrap';
+        portLabel.style.display = 'flex';
+        portLabel.style.alignItems = 'center';
 
-      bibSetting.addText((text) => {
-        text.inputEl.style.order = '1';
-        text.inputEl.style.width = '60px';
-        text
-          .setPlaceholder(t('Port'))
-          .setValue(this.plugin.settings.zoteroPort ?? DEFAULT_ZOTERO_PORT)
-          .onChange((value) => {
-            this.plugin.settings.zoteroPort = value;
-            this.plugin.saveSettings();
-            libButton.setDisabled(true);
-            libButton.setButtonText('...');
-            isZoteroRunning(value).then((isRunning) => {
-              if (isRunning) {
-                libButton.setDisabled(false);
-                libButton.setButtonText(t('Libraries'));
-              } else {
+        bibSetting.addText((text) => {
+          text.inputEl.style.order = '1';
+          text.inputEl.style.width = '60px';
+          text
+            .setPlaceholder(t('Port'))
+            .setValue(this.plugin.settings.zoteroPort ?? DEFAULT_ZOTERO_PORT)
+            .onChange((value) => {
+              this.plugin.settings.zoteroPort = value;
+              this.plugin.saveSettings();
+              libButton.setDisabled(true);
+              libButton.setButtonText('...');
+              isZoteroRunning(value).then((isRunning) => {
+                if (isRunning) {
+                  libButton.setDisabled(false);
+                  libButton.setButtonText(t('Libraries'));
+                } else {
+                  libButton.setDisabled(true);
+                  libButton.setButtonText(t('Disconnected'));
+                }
+              }).catch((e) => {
                 libButton.setDisabled(true);
                 libButton.setButtonText(t('Disconnected'));
-              }
-            }).catch((e) => {
-              libButton.setDisabled(true);
-              libButton.setButtonText(t('Disconnected'));
+              });
             });
-          });
-      });
+        });
 
-      // Initial check
-      libButton.setDisabled(true);
-      libButton.setButtonText('...');
-      isZoteroRunning(this.plugin.settings.zoteroPort).then((isRunning) => {
-        if (isRunning) {
-          libButton.setDisabled(false);
-          libButton.setButtonText(t('Libraries'));
-        } else {
+        // Initial check
+        libButton.setDisabled(true);
+        libButton.setButtonText('...');
+        isZoteroRunning(this.plugin.settings.zoteroPort).then((isRunning) => {
+          if (isRunning) {
+            libButton.setDisabled(false);
+            libButton.setButtonText(t('Libraries'));
+          } else {
+            libButton.setDisabled(true);
+            libButton.setButtonText(t('Disconnected'));
+          }
+        }).catch((e) => {
           libButton.setDisabled(true);
           libButton.setButtonText(t('Disconnected'));
-        }
-      }).catch((e) => {
-        libButton.setDisabled(true);
-        libButton.setButtonText(t('Disconnected'));
-      });
+        });
+      }
     }
 
     const cslSource = this.plugin.settings.cslSource || 'search';

@@ -9,6 +9,8 @@ export class TooltipManager {
   tooltip: HTMLDivElement;
   isHoveringTooltip = false;
   isScrollBound = false;
+  activeCitekey?: string;
+  activeSource?: string;
 
   constructor(plugin: ReferenceList) {
     this.plugin = plugin;
@@ -16,11 +18,21 @@ export class TooltipManager {
   }
 
   showTooltip(el: HTMLSpanElement) {
+    if (!el.dataset.source) return;
+
+    const citekey = el.dataset.citekey;
+    const source = el.dataset.source;
+
+    if (this.tooltip && this.activeCitekey === citekey && this.activeSource === source) {
+      return;
+    }
+
     if (this.tooltip) {
       this.hideTooltip();
     }
 
-    if (!el.dataset.source) return;
+    this.activeCitekey = citekey;
+    this.activeSource = source;
 
     const file = app.vault.getAbstractFileByPath(el.dataset.source);
     if (!file && !(file instanceof TFile)) {
@@ -129,6 +141,8 @@ export class TooltipManager {
   boundScroll: () => void;
 
   hideTooltip() {
+    this.activeCitekey = null;
+    this.activeSource = null;
     this.isHoveringTooltip = false;
     this.isScrollBound = false;
     this.tooltip?.win.removeEventListener('scroll', this.boundScroll);

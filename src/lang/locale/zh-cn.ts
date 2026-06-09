@@ -41,4 +41,5 @@ export default {
   'Port': '端口',
   'Type to search CSL style language': '输入以搜索 CSL 样式语言',
   'Lang...': '语言...',
+  'Using cache from desktop version': '正在使用桌面端缓存的信息',
 };

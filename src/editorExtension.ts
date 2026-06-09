@@ -15,6 +15,7 @@ import {
   editorInfoField,
   editorLivePreviewField,
   livePreviewState,
+  Platform,
 } from 'obsidian';
 
 import {
@@ -351,3 +352,92 @@ export const bibManagerField = StateField.define<BibManager>({
     return state;
   },
 });
+
+function getCitationElementAtPos(view: EditorView, pos: number): HTMLElement | null {
+  try {
+    if (pos < 0 || pos > view.state.doc.length) return null;
+    const { node, offset } = view.domAtPos(pos);
+    if (!node) return null;
+
+    if (node instanceof HTMLElement && node.childNodes && offset >= 0 && offset < node.childNodes.length) {
+      const child = node.childNodes[offset];
+      if (child instanceof HTMLElement) {
+        if (child.classList.contains('pandoc-citation') || child.classList.contains('cm-pandoc-citation')) {
+          return child;
+        }
+      }
+    }
+
+    let el = node instanceof HTMLElement ? node : node.parentElement;
+    while (el && el !== view.contentDOM) {
+      if (el.classList.contains('pandoc-citation') || el.classList.contains('cm-pandoc-citation')) {
+        return el as HTMLElement;
+      }
+      el = el.parentElement;
+    }
+  } catch (e) {
+    // domAtPos can throw if the position is not currently rendered or out of bounds
+  }
+  return null;
+}
+
+export const mobileCursorTooltipPlugin = ViewPlugin.fromClass(
+  class {
+    view: EditorView;
+    constructor(view: EditorView) {
+      this.view = view;
+    }
+
+    update(update: ViewUpdate) {
+      if (!Platform.isMobile) return;
+
+      const bibField = update.view.state.field(bibManagerField);
+      if (!bibField || !bibField.plugin) return;
+      const plugin = bibField.plugin;
+
+      if (!plugin.settings.showCitekeyTooltips) {
+        plugin.tooltipManager.hideTooltip();
+        return;
+      }
+
+      if (update.selectionSet || update.docChanged) {
+        const head = update.state.selection.main.head;
+        const citekeyCache = update.state.field(citeKeyCacheField);
+
+        if (!citekeyCache || !citekeyCache.citations) {
+          plugin.tooltipManager.hideTooltip();
+          return;
+        }
+
+        // Find if there is a citation group containing or adjacent to head
+        const activeCite = citekeyCache.citations.find(
+          (c) => head >= c.from - 1 && head <= c.to + 1
+        );
+
+        if (activeCite) {
+          const pos = activeCite.from;
+          const el = getCitationElementAtPos(update.view, pos)
+                  || getCitationElementAtPos(update.view, pos + 1)
+                  || getCitationElementAtPos(update.view, Math.min(activeCite.to, pos + 2));
+
+          if (el) {
+            plugin.tooltipManager.showTooltip(el);
+          } else {
+            plugin.tooltipManager.hideTooltip();
+          }
+        } else {
+          plugin.tooltipManager.hideTooltip();
+        }
+      }
+    }
+
+    destroy() {
+      if (Platform.isMobile) {
+        const bibField = this.view.state.field(bibManagerField);
+        if (bibField?.plugin?.tooltipManager) {
+          bibField.plugin.tooltipManager.hideTooltip();
+        }
+      }
+    }
+  }
+);

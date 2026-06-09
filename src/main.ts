@@ -14,6 +14,7 @@ import {
   citeKeyPlugin,
   bibManagerField,
   editorTooltipHandler,
+  mobileCursorTooltipPlugin,
 } from './editorExtension';
 import { t } from './lang/helpers';
 import { processCiteKeys } from './markdownPostprocessor';
@@ -79,6 +80,7 @@ export default class ReferenceList extends Plugin {
       citeKeyCacheField,
       citeKeyPlugin,
       editorTooltipHandler(this.tooltipManager),
+      mobileCursorTooltipPlugin,
     ]);
 
     this.initPromise.resolve();

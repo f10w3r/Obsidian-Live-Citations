@@ -120,4 +120,5 @@ export default {
   'Port': 'Port',
   'Type to search CSL style language': 'Type to search CSL style language',
   'Lang...': 'Lang...',
+  'Using cache from desktop version': 'Using cache from desktop version',
 };
