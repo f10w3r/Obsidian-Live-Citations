@@ -6,6 +6,7 @@ import {
   WorkspaceLeaf,
   debounce,
   setIcon,
+  Platform,
 } from 'obsidian';
 
 import {
@@ -24,7 +25,6 @@ import {
 import { TooltipManager } from './tooltip';
 import { ReferenceListView, viewType } from './view';
 import { PromiseCapability, getVaultRoot } from './helpers';
-import path from 'path';
 import { BibManager } from './bib/bibManager';
 import { CiteSuggest } from './citeSuggest/citeSuggest';
 import { isZoteroRunning } from './bib/helpers';
@@ -54,7 +54,10 @@ export default class ReferenceList extends Plugin {
       (leaf: WorkspaceLeaf) => new ReferenceListView(leaf, this)
     );
 
-    this.cacheDir = path.join(getVaultRoot(), '.pandoc');
+    this.cacheDir = Platform.isMobile
+      ? `${this.manifest.dir}/zotero-cache`
+      : require('path').join(getVaultRoot(), this.manifest.dir, 'zotero-cache');
+    
     this.emitter = new Events();
     this.bibManager = new BibManager(this);
     this.initPromise.promise

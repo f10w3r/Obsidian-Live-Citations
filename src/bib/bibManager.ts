@@ -23,13 +23,11 @@ import {
   getCitations,
 } from 'src/parser/parser';
 import LRUCache from 'lru-cache';
-import { Keymap, MarkdownView, TFile, setIcon } from 'obsidian';
+import { Keymap, MarkdownView, TFile, setIcon, Platform } from 'obsidian';
 import { cite } from 'src/parser/citeproc';
 import { setCiteKeyCache } from 'src/editorExtension';
 import equal from 'fast-deep-equal';
 import { t } from 'src/lang/helpers';
-import path from 'path';
-import { FSWatcher, watch, existsSync } from 'fs';
 
 const fuseSettings = {
   includeMatches: true,
@@ -89,8 +87,21 @@ function getScopedSettings(file: TFile): ScopedSettings {
   }
 
   // Checks whether the bibliography is a relative path and replaces the path with an absolute one
-  if (existsSync(path.join(getVaultRoot(), path.dirname(file.path), output.bibliography))){
-    output.bibliography = path.join(getVaultRoot(), path.dirname(file.path), output.bibliography);
+  if (Platform.isMobile) {
+    const parentPath = file.parent ? file.parent.path : '';
+    if (parentPath && parentPath !== '/') {
+      const relPath = parentPath + '/' + output.bibliography;
+      if (app.vault.getAbstractFileByPath(relPath)) {
+        output.bibliography = relPath;
+      }
+    }
+  } else {
+    const fs = require('fs');
+    const path = require('path');
+    const fullPath = path.join(getVaultRoot(), path.dirname(file.path), output.bibliography);
+    if (fs.existsSync(fullPath)){
+      output.bibliography = fullPath;
+    }
   }
 
   return output;
@@ -147,7 +158,7 @@ export class BibManager {
   zCitekeyToLinks: Map<string, string> = new Map();
   zCitekeyToPDFLinks: Map<string, { path: string; select?: string }[]> = new Map();
 
-  watcherCache: Map<string, FSWatcher> = new Map();
+  watcherCache: Map<string, any> = new Map();
 
   constructor(plugin: ReferenceList) {
     this.plugin = plugin;
@@ -167,7 +178,11 @@ export class BibManager {
     this.fileCache.clear();
 
     for (const watcher of this.watcherCache.values()) {
-      watcher.close();
+      if (Platform.isMobile) {
+        this.plugin.app.vault.offref(watcher);
+      } else {
+        watcher.close();
+      }
     }
 
     this.watcherCache.clear();
@@ -181,7 +196,12 @@ export class BibManager {
 
   clearWatcher(path: string) {
     if (this.watcherCache.has(path)) {
-      this.watcherCache.get(path).close();
+      const watcher = this.watcherCache.get(path);
+      if (Platform.isMobile) {
+        this.plugin.app.vault.offref(watcher);
+      } else {
+        watcher.close();
+      }
       this.watcherCache.delete(path);
     }
   }
@@ -313,22 +333,38 @@ export class BibManager {
 
       if (bibPath && !this.watcherCache.has(bibPath)) {
         let dbTimer = 0;
-        this.watcherCache.set(
-          bibPath,
-          watch(bibPath, (evt) => {
-            if (evt === 'change') {
+        if (Platform.isMobile) {
+          const ref = this.plugin.app.vault.on('modify', (changedFile) => {
+            if (changedFile instanceof TFile && changedFile.path === bibPath) {
               clearTimeout(dbTimer);
-              dbTimer = activeWindow.setTimeout(() => {
+              dbTimer = window.setTimeout(() => {
                 this.loadGlobalBibFile().then(() => {
                   this.fileCache.clear();
                   this.plugin.processReferences();
                 });
               }, 100);
-            } else {
-              this.clearWatcher(bibPath);
             }
-          })
-        );
+          });
+          this.watcherCache.set(bibPath, ref);
+        } else {
+          const { watch } = require('fs');
+          this.watcherCache.set(
+            bibPath,
+            watch(bibPath, (evt) => {
+              if (evt === 'change') {
+                clearTimeout(dbTimer);
+                dbTimer = activeWindow.setTimeout(() => {
+                  this.loadGlobalBibFile().then(() => {
+                    this.fileCache.clear();
+                    this.plugin.processReferences();
+                  });
+                }, 100);
+              } else {
+                this.clearWatcher(bibPath);
+              }
+            })
+          );
+        }
       }
 
       for (const entry of bib) {
@@ -368,7 +404,61 @@ export class BibManager {
     await this.refreshGlobalZBib();
   }
 
+  async loadZoteroLinksCache() {
+    const cacheFile = `${this.plugin.cacheDir}/zotero-links-cache.json`;
+    try {
+      let content: string;
+      if (Platform.isMobile) {
+        if (await app.vault.adapter.exists(cacheFile)) {
+          content = await app.vault.adapter.read(cacheFile);
+        }
+      } else {
+        const fs = require('fs');
+        if (fs.existsSync(cacheFile)) {
+          content = fs.readFileSync(cacheFile, 'utf8');
+        }
+      }
+      if (content) {
+        const data = JSON.parse(content);
+        if (data.links) {
+          this.zCitekeyToLinks = new Map(Object.entries(data.links));
+        }
+        if (data.pdfLinks) {
+          this.zCitekeyToPDFLinks = new Map(Object.entries(data.pdfLinks));
+        }
+      }
+    } catch (e) {
+      console.error('Failed to load Zotero links cache:', e);
+    }
+  }
+
+  async saveZoteroLinksCache() {
+    const cacheFile = `${this.plugin.cacheDir}/zotero-links-cache.json`;
+    try {
+      const data = {
+        links: Object.fromEntries(this.zCitekeyToLinks.entries()),
+        pdfLinks: Object.fromEntries(this.zCitekeyToPDFLinks.entries())
+      };
+      const content = JSON.stringify(data, null, 2);
+      if (Platform.isMobile) {
+        if (!(await app.vault.adapter.exists(this.plugin.cacheDir))) {
+          await app.vault.adapter.mkdir(this.plugin.cacheDir);
+        }
+        await app.vault.adapter.write(cacheFile, content);
+      } else {
+        const fs = require('fs');
+        if (!fs.existsSync(this.plugin.cacheDir)) {
+          fs.mkdirSync(this.plugin.cacheDir, { recursive: true });
+        }
+        fs.writeFileSync(cacheFile, content, 'utf8');
+      }
+    } catch (e) {
+      console.error('Failed to save Zotero links cache:', e);
+    }
+  }
+
   async loadGlobalZBib(fromCache?: boolean) {
+    await this.loadZoteroLinksCache();
     const { settings, cacheDir } = this.plugin;
     if (!settings.zoteroGroups?.length) return;
 
@@ -641,20 +731,34 @@ export class BibManager {
       const bibPath = getBibPath(settings.bibliography, getVaultRoot);
       if (!this.watcherCache.has(bibPath)) {
         let dbTimer = 0;
-        this.watcherCache.set(
-          bibPath,
-          watch(bibPath, (evt) => {
-            if (evt === 'change') {
+        if (Platform.isMobile) {
+          const ref = this.plugin.app.vault.on('modify', (changedFile) => {
+            if (changedFile instanceof TFile && changedFile.path === bibPath) {
               clearTimeout(dbTimer);
-              dbTimer = activeWindow.setTimeout(() => {
+              dbTimer = window.setTimeout(() => {
                 this.fileCache.delete(file);
                 this.plugin.processReferences();
               }, 100);
-            } else {
-              this.clearWatcher(bibPath);
             }
-          })
-        );
+          });
+          this.watcherCache.set(bibPath, ref);
+        } else {
+          const { watch } = require('fs');
+          this.watcherCache.set(
+            bibPath,
+            watch(bibPath, (evt) => {
+              if (evt === 'change') {
+                clearTimeout(dbTimer);
+                dbTimer = activeWindow.setTimeout(() => {
+                  this.fileCache.delete(file);
+                  this.plugin.processReferences();
+                }, 100);
+              } else {
+                this.clearWatcher(bibPath);
+              }
+            })
+          );
+        }
       }
     }
 
@@ -808,6 +912,7 @@ export class BibManager {
         //
       }
     }
+    await this.saveZoteroLinksCache();
   }
 
   prepBibHTML(parsed: HTMLElement, file: TFile, inTooltip?: boolean) {
@@ -849,7 +954,10 @@ export class BibManager {
           );
         }
 
-        if (!linkDest && !zLink && !zPDFLinks) return;
+        const showZoteroButtons = !Platform.isMobile || Platform.isIosApp;
+        const hasZoteroButtons = showZoteroButtons && (zLink || zPDFLinks);
+
+        if (!linkDest && !hasZoteroButtons) return;
 
         div.createDiv({ cls: 'pwc-entry-btns' }, (div) => {
           if (linkDest) {
@@ -862,7 +970,7 @@ export class BibManager {
               });
             });
           }
-          if (zLink) {
+          if (showZoteroButtons && zLink) {
             div.createDiv('clickable-icon', (div) => {
               setIcon(div, 'lucide-external-link');
               div.setAttr('aria-label', t('Open in Zotero'));
@@ -871,11 +979,12 @@ export class BibManager {
               });
             });
           }
-          if (zPDFLinks) {
+          if (showZoteroButtons && zPDFLinks) {
             zPDFLinks.forEach((att) =>
               div.createDiv('clickable-icon', (div) => {
                 setIcon(div, 'lucide-file-text');
-                div.setAttr('aria-label', path.parse(att.path).base);
+                const filename = att.path.split(/[/\\]/).pop() || '';
+                div.setAttr('aria-label', filename);
                 div.onClickEvent(() => {
                   if (att.select) {
                     // Extract the Zotero item key from the select URL and open via Zotero

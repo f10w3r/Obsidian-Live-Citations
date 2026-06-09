@@ -1,20 +1,36 @@
 import { BibLatexParser, CSLExporter } from 'biblatex-csl-converter';
-import fs from 'fs';
-import path from 'path';
-import https from 'https';
-import download from 'download';
-import { request } from 'http';
 import { CSLList, PartialCSLEntry } from './types';
+import { Platform, requestUrl } from 'obsidian';
 
 export const DEFAULT_ZOTERO_PORT = '23119';
 
-function ensureDir(dir: string) {
+async function ensureDirectory(dir: string) {
+  if (Platform.isMobile) {
+    if (!(await app.vault.adapter.exists(dir))) {
+      try {
+        await app.vault.adapter.mkdir(dir);
+      } catch (e) {
+        console.error('Failed to create directory via adapter', e);
+      }
+    }
+    return;
+  }
+  const fs = require('fs');
   if (!fs.existsSync(dir)) {
     fs.mkdirSync(dir, { recursive: true });
   }
 }
 
 export function getBibPath(bibPath: string, getVaultRoot?: () => string) {
+  if (Platform.isMobile) {
+    if (app.vault.getAbstractFileByPath(bibPath)) {
+      return bibPath;
+    }
+    throw new Error(`cannot access bibliography file '${bibPath}'.`);
+  }
+
+  const fs = require('fs');
+  const path = require('path');
   if (!fs.existsSync(bibPath)) {
     const orig = bibPath;
     if (getVaultRoot) {
@@ -36,22 +52,22 @@ export async function bibToCSL(
 ): Promise<PartialCSLEntry[]> {
   bibPath = getBibPath(bibPath, getVaultRoot);
 
-  const parsed = path.parse(bibPath);
-  if (parsed.ext === '.json') {
-    return new Promise((res, rej) => {
-      fs.readFile(bibPath, (err, data) => {
-        if (err) return rej(err);
-        try {
-          res(JSON.parse(data.toString()));
-        } catch (e) {
-          rej(e);
-        }
-      });
-    });
+  const parsedExt = bibPath.split('.').pop()?.toLowerCase();
+  const isJson = parsedExt === 'json';
+
+  let content: string;
+  if (Platform.isMobile) {
+    content = await app.vault.adapter.read(bibPath);
+  } else {
+    const fs = require('fs');
+    content = fs.readFileSync(bibPath, 'utf-8');
+  }
+
+  if (isJson) {
+    return JSON.parse(content);
   }
 
   // 纯 JS 解析，不需要外部 pandoc 可执行文件
-  const content = fs.readFileSync(bibPath, 'utf-8');
   const parser = new BibLatexParser(content, {
     processUnexpected: true,
     processUnknown: true,
@@ -78,9 +94,32 @@ export async function getCSLLocale(
   }
 
   const url = `https://raw.githubusercontent.com/citation-style-language/locales/master/locales-${lang}.xml`;
+  
+  if (Platform.isMobile) {
+    const outpath = `${cacheDir}/locales-${lang}.xml`;
+    await ensureDirectory(cacheDir);
+    if (await app.vault.adapter.exists(outpath)) {
+      const localeData = await app.vault.adapter.read(outpath);
+      localeCache.set(lang, localeData);
+      return localeData;
+    }
+    const response = await requestUrl({ url });
+    if (response.status !== 200) {
+      throw new Error(`Error downloading locale: ${response.status}`);
+    }
+    const str = response.text;
+    await app.vault.adapter.write(outpath, str);
+    localeCache.set(lang, str);
+    return str;
+  }
+
+  // Desktop
+  const path = require('path');
+  const fs = require('fs');
+  const https = require('https');
   const outpath = path.join(cacheDir, `locales-${lang}.xml`);
 
-  ensureDir(cacheDir);
+  await ensureDirectory(cacheDir);
   if (fs.existsSync(outpath)) {
     const localeData = fs.readFileSync(outpath).toString();
     localeCache.set(lang, localeData);
@@ -88,12 +127,11 @@ export async function getCSLLocale(
   }
 
   const str = await new Promise<string>((res, rej) => {
-    https.get(url, (result) => {
+    https.get(url, (result: any) => {
       let output = '';
-
       result.setEncoding('utf8');
-      result.on('data', (chunk) => (output += chunk));
-      result.on('error', (e) => rej(`Downloading locale: ${e}`));
+      result.on('data', (chunk: any) => (output += chunk));
+      result.on('error', (e: any) => rej(`Downloading locale: ${e}`));
       result.on('close', () => {
         rej(new Error('Error: cannot download locale'));
       });
@@ -123,6 +161,16 @@ export async function getCSLStyle(
       return styleCache.get(explicitPath);
     }
 
+    if (Platform.isMobile) {
+      if (!(await app.vault.adapter.exists(explicitPath))) {
+        throw new Error(`Error: retrieving citation style; Cannot find file '${explicitPath}'.`);
+      }
+      const styleData = await app.vault.adapter.read(explicitPath);
+      styleCache.set(explicitPath, styleData);
+      return styleData;
+    }
+
+    const fs = require('fs');
     if (!fs.existsSync(explicitPath)) {
       throw new Error(
         `Error: retrieving citation style; Cannot find file '${explicitPath}'.`
@@ -138,10 +186,33 @@ export async function getCSLStyle(
     return styleCache.get(url);
   }
 
-  const fileFromURL = url.split('/').pop();
+  const fileFromURL = url.split('/').pop() ?? '';
+
+  if (Platform.isMobile) {
+    const outpath = `${cacheDir}/${fileFromURL}`;
+    await ensureDirectory(cacheDir);
+    if (await app.vault.adapter.exists(outpath)) {
+      const styleData = await app.vault.adapter.read(outpath);
+      styleCache.set(url, styleData);
+      return styleData;
+    }
+    const response = await requestUrl({ url });
+    if (response.status !== 200) {
+      throw new Error(`Error downloading CSL: ${response.status}`);
+    }
+    const str = response.text;
+    await app.vault.adapter.write(outpath, str);
+    styleCache.set(url, str);
+    return str;
+  }
+
+  // Desktop
+  const path = require('path');
+  const fs = require('fs');
+  const https = require('https');
   const outpath = path.join(cacheDir, fileFromURL);
 
-  ensureDir(cacheDir);
+  await ensureDirectory(cacheDir);
   if (fs.existsSync(outpath)) {
     const styleData = fs.readFileSync(outpath).toString();
     styleCache.set(url, styleData);
@@ -149,12 +220,11 @@ export async function getCSLStyle(
   }
 
   const str = await new Promise<string>((res, rej) => {
-    https.get(url, (result) => {
+    https.get(url, (result: any) => {
       let output = '';
-
       result.setEncoding('utf8');
-      result.on('data', (chunk) => (output += chunk));
-      result.on('error', (e) => rej(`Error downloading CSL: ${e}`));
+      result.on('data', (chunk: any) => (output += chunk));
+      result.on('error', (e: any) => rej(`Error downloading CSL: ${e}`));
       result.on('close', () => {
         rej(new Error('Error: cannot download CSL'));
       });
@@ -180,24 +250,20 @@ export const defaultHeaders = {
   Connection: 'keep-alive',
 };
 
-function getGlobal() {
-  if (window?.activeWindow) return activeWindow;
-  if (window) return window;
-  return global;
-}
-
 export async function getZUserGroups(
   port: string = DEFAULT_ZOTERO_PORT
 ): Promise<Array<{ id: number; name: string }>> {
+  if (Platform.isMobile) return null;
   if (!(await isZoteroRunning(port))) return null;
 
+  const http = require('http');
   return new Promise((res, rej) => {
     const body = JSON.stringify({
       jsonrpc: '2.0',
       method: 'user.groups',
     });
 
-    const postRequest = request(
+    const postRequest = http.request(
       {
         host: '127.0.0.1',
         port: port,
@@ -208,12 +274,12 @@ export async function getZUserGroups(
           'Content-Length': Buffer.byteLength(body),
         },
       },
-      (result) => {
+      (result: any) => {
         let output = '';
 
         result.setEncoding('utf8');
-        result.on('data', (chunk) => (output += chunk));
-        result.on('error', (e) => rej(`Error connecting to Zotero: ${e}`));
+        result.on('data', (chunk: any) => (output += chunk));
+        result.on('error', (e: any) => rej(`Error connecting to Zotero: ${e}`));
         result.on('close', () => {
           rej(new Error('Error: cannot connect to Zotero'));
         });
@@ -251,8 +317,10 @@ export async function getZModified(
   groupId: number,
   since: number
 ): Promise<CSLList> {
+  if (Platform.isMobile) return null;
   if (!(await isZoteroRunning(port))) return null;
 
+  const http = require('http');
   return new Promise((res, rej) => {
     const body = JSON.stringify({
       jsonrpc: '2.0',
@@ -260,7 +328,7 @@ export async function getZModified(
       params: [[['dateModified', 'isAfter', timestampToZDate(since)]], groupId],
     });
 
-    const postRequest = request(
+    const postRequest = http.request(
       {
         host: '127.0.0.1',
         port: port,
@@ -271,12 +339,12 @@ export async function getZModified(
           'Content-Length': Buffer.byteLength(body),
         },
       },
-      (result) => {
+      (result: any) => {
         let output = '';
 
         result.setEncoding('utf8');
-        result.on('data', (chunk) => (output += chunk));
-        result.on('error', (e) => rej(`Error connecting to Zotero: ${e}`));
+        result.on('data', (chunk: any) => (output += chunk));
+        result.on('error', (e: any) => rej(`Error connecting to Zotero: ${e}`));
         result.on('close', () => {
           rej(new Error('Error: cannot connect to Zotero'));
         });
@@ -308,10 +376,24 @@ export async function getZBib(
   groupId: number,
   loadCached?: boolean
 ) {
+  if (Platform.isMobile) {
+    const cached = `${cacheDir}/zotero-library-${groupId}.json`;
+    if (await app.vault.adapter.exists(cached)) {
+      const content = await app.vault.adapter.read(cached);
+      return applyGroupID(
+        JSON.parse(content) as CSLList,
+        groupId
+      );
+    }
+    return null;
+  }
+
   const isRunning = await isZoteroRunning(port);
+  const path = require('path');
   const cached = path.join(cacheDir, `zotero-library-${groupId}.json`);
 
-  ensureDir(cacheDir);
+  const fs = require('fs');
+  await ensureDirectory(cacheDir);
   if (loadCached || !isRunning) {
     if (fs.existsSync(cached)) {
       return applyGroupID(
@@ -324,12 +406,12 @@ export async function getZBib(
     }
   }
 
+  const download = require('download');
   const bib = await download(
     `http://127.0.0.1:${port}/better-bibtex/export/library?/${groupId}/library.json`
   );
 
   const str = bib.toString();
-
   fs.writeFileSync(cached, str);
 
   return applyGroupID(JSON.parse(str) as CSLList, groupId);
@@ -341,12 +423,15 @@ export async function refreshZBib(
   groupId: number,
   since: number
 ) {
+  if (Platform.isMobile) return null;
   if (!(await isZoteroRunning(port))) {
     return null;
   }
 
+  const path = require('path');
   const cached = path.join(cacheDir, `zotero-library-${groupId}.json`);
-  ensureDir(cacheDir);
+  const fs = require('fs');
+  await ensureDirectory(cacheDir);
   if (!fs.existsSync(cached)) {
     return null;
   }
@@ -390,18 +475,24 @@ export async function refreshZBib(
 }
 
 export async function isZoteroRunning(port: string = DEFAULT_ZOTERO_PORT) {
-  const p = download(`http://127.0.0.1:${port}/better-bibtex/cayw?probe=true`);
-  const res = await Promise.race([
-    p,
-    new Promise((res) => {
-      getGlobal().setTimeout(() => {
-        res(null);
-        p.destroy();
-      }, 150);
-    }),
-  ]);
+  if (Platform.isMobile) return false;
 
-  return res?.toString() === 'ready';
+  const download = require('download');
+  const p = download(`http://127.0.0.1:${port}/better-bibtex/cayw?probe=true`);
+  try {
+    const res = await Promise.race([
+      p,
+      new Promise((resolve) => {
+        window.setTimeout(() => {
+          resolve(null);
+          try { p.destroy(); } catch {}
+        }, 150);
+      }),
+    ]);
+    return res?.toString() === 'ready';
+  } catch (e) {
+    return false;
+  }
 }
 
 export async function getItemJSONFromCiteKeys(
@@ -409,18 +500,20 @@ export async function getItemJSONFromCiteKeys(
   citeKeys: string[],
   libraryID: number
 ) {
+  if (Platform.isMobile) return null;
   if (!(await isZoteroRunning(port))) return null;
 
+  const http = require('http');
   let res: any;
   try {
-    res = await new Promise((res, rej) => {
+    res = await new Promise((resolve, reject) => {
       const body = JSON.stringify({
         jsonrpc: '2.0',
         method: 'item.export',
         params: [citeKeys, '36a3b0b5-bad0-4a04-b79b-441c7cef77db', libraryID],
       });
 
-      const postRequest = request(
+      const postRequest = http.request(
         {
           host: '127.0.0.1',
           port: port,
@@ -431,20 +524,20 @@ export async function getItemJSONFromCiteKeys(
             'Content-Length': Buffer.byteLength(body),
           },
         },
-        (result) => {
+        (result: any) => {
           let output = '';
 
           result.setEncoding('utf8');
-          result.on('data', (chunk) => (output += chunk));
-          result.on('error', (e) => rej(`Error connecting to Zotero: ${e}`));
+          result.on('data', (chunk: any) => (output += chunk));
+          result.on('error', (e: any) => reject(`Error connecting to Zotero: ${e}`));
           result.on('close', () => {
-            rej(new Error('Error: cannot connect to Zotero'));
+            reject(new Error('Error: cannot connect to Zotero'));
           });
           result.on('end', () => {
             try {
-              res(JSON.parse(output));
+              resolve(JSON.parse(output));
             } catch (e) {
-              rej(e);
+              reject(e);
             }
           });
         }

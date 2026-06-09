@@ -1,4 +1,4 @@
-import { Notice, PluginSettingTab, Setting, Modal, App } from 'obsidian';
+import { Notice, PluginSettingTab, Setting, Modal, App, Platform } from 'obsidian';
 
 import { t } from './lang/helpers';
 import ReferenceList from './main';
@@ -69,7 +69,8 @@ export class ReferenceListSettingsTab extends PluginSettingTab {
     const bibSetting = new Setting(containerEl)
       .setName(t('Bibliography'))
       .setDesc(t('Select a local file or connect to Zotero.'))
-      .addDropdown((dropdown) => {
+    if (!Platform.isMobile) {
+      bibSetting.addDropdown((dropdown) => {
         dropdown.selectEl.style.order = '4';
         dropdown.selectEl.style.width = '110px';
         dropdown
@@ -84,6 +85,7 @@ export class ReferenceListSettingsTab extends PluginSettingTab {
             this.display();
           });
       });
+    }
 
 
 
@@ -93,7 +95,9 @@ export class ReferenceListSettingsTab extends PluginSettingTab {
     bibSetting.controlEl.style.flexWrap = 'wrap';
     bibSetting.controlEl.style.rowGap = '10px';
 
-    if (!this.plugin.settings.pullFromZotero) {
+    const isZoteroEnabled = !Platform.isMobile && this.plugin.settings.pullFromZotero;
+
+    if (!isZoteroEnabled) {
       bibSetting.addText((text) => {
         text.inputEl.style.order = '2';
         text.inputEl.style.width = '100%';
@@ -111,24 +115,26 @@ export class ReferenceListSettingsTab extends PluginSettingTab {
           });
       });
 
-      bibSetting.addExtraButton((b) => {
-        b.extraSettingsEl.style.order = '1';
-        b.setIcon('folder');
-        b.setTooltip(t('Select a bibliography file.'));
-        b.onClick(() => {
-          const path = require('electron').remote.dialog.showOpenDialogSync({
-            properties: ['openFile'],
-          });
+      if (!Platform.isMobile) {
+        bibSetting.addExtraButton((b) => {
+          b.extraSettingsEl.style.order = '1';
+          b.setIcon('folder');
+          b.setTooltip(t('Select a bibliography file.'));
+          b.onClick(() => {
+            const path = require('electron').remote.dialog.showOpenDialogSync({
+              properties: ['openFile'],
+            });
 
-          if (path && path.length) {
-            this.plugin.settings.pathToBibliography = path[0];
-            this.plugin.saveSettings(() =>
-              this.plugin.bibManager.reinit(true)
-            );
-            this.display();
-          }
+            if (path && path.length) {
+              this.plugin.settings.pathToBibliography = path[0];
+              this.plugin.saveSettings(() =>
+                this.plugin.bibManager.reinit(true)
+              );
+              this.display();
+            }
+          });
         });
-      });
+      }
     } else {
       let libButton: ButtonComponent;
 
@@ -300,24 +306,26 @@ export class ReferenceListSettingsTab extends PluginSettingTab {
           });
       });
 
-      sourceSetting.addExtraButton((b) => {
-        b.extraSettingsEl.style.order = '4';
-        b.setIcon('folder');
-        b.setTooltip(t('Select a CSL file located on your computer'));
-        b.onClick(() => {
-          const path = require('electron').remote.dialog.showOpenDialogSync({
-            properties: ['openFile'],
-          });
+      if (!Platform.isMobile) {
+        sourceSetting.addExtraButton((b) => {
+          b.extraSettingsEl.style.order = '4';
+          b.setIcon('folder');
+          b.setTooltip(t('Select a CSL file located on your computer'));
+          b.onClick(() => {
+            const path = require('electron').remote.dialog.showOpenDialogSync({
+              properties: ['openFile'],
+            });
 
-          if (path && path.length) {
-            this.plugin.settings.cslStylePath = path[0];
-            this.plugin.saveSettings(() =>
-              this.plugin.bibManager.reinit(false)
-            );
-            this.display();
-          }
+            if (path && path.length) {
+              this.plugin.settings.cslStylePath = path[0];
+              this.plugin.saveSettings(() =>
+                this.plugin.bibManager.reinit(false)
+              );
+              this.display();
+            }
+          });
         });
-      });
+      }
     }
 
 
