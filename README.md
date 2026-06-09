@@ -54,6 +54,15 @@ Open **Settings → Live Citations** to configure:
 3. Write Pandoc-style citekeys in your notes (e.g. `According to studies [@smith2023]...`).
 4. The bibliography updates **live** in the sidebar as you type.
 
+### 4. Exporting to DOCX
+
+You can export your note directly into a formatted Microsoft Word `.docx` file containing the compiled bibliography list:
+1. Open the note you want to export.
+2. Open the **Command Palette** (`Ctrl+P` / `Cmd+P`).
+3. Run **`Live Citations: Export current file to DOCX`**.
+4. The plugin compiles your text, styles, and bibliography list entirely in JavaScript/TypeScript, saving a formatted `.docx` file in your vault next to the original note.
+
+
 ## 🙏 Acknowledgements
 
 This plugin is a fork of [obsidian-pandoc-reference-list](https://github.com/obsidian-community/obsidian-pandoc-reference-list) by **mgmeyers**. The core parsing flow and interface skeleton are credited to the original author. This fork aims to provide a lightweight, cross-platform, dependency-free alternative that runs seamlessly on mobile and desktop alike.
