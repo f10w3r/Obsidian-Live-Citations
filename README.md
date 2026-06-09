@@ -12,6 +12,12 @@ An Obsidian plugin for lightweight academic writing. Displays real-time formatte
 
 ## Installation
 
+### Method 1: Via BRAT (Recommended for updates)
+1. Install and enable the **BRAT** plugin from Obsidian's Community Plugins.
+2. Go to **Settings -> BRAT -> Add Beta Plugin**.
+3. Enter `f10w3r/Obsidian-Live-Citations` and click **Add Plugin**.
+
+### Method 2: Manual Installation
 1. Download the latest `live-citations-0.9.0.zip` from [Releases](https://github.com/f10w3r/Obsidian-Live-Citations/releases).
 2. Extract it into your vault's plugin directory: `<vault>/.obsidian/plugins/live-citations/`.
 3. Enable **Live Citations** in Obsidian Settings -> Community Plugins.
