@@ -1,72 +1,30 @@
 # Live Citations
 
-> **Inspired by and forked from [obsidian-pandoc-reference-list](https://github.com/obsidian-community/obsidian-pandoc-reference-list).**  
-> Special thanks to the original author **mgmeyers** and the Obsidian community for building the foundation that made this plugin possible.
+An Obsidian plugin for lightweight academic writing. Displays real-time formatted bibliographies and reference lists in the sidebar for Pandoc-style citations (e.g. `[@citekey]`).
+
+## Features
+
+- **No Pandoc Required**: Citation rendering and layout are handled natively in JavaScript using `citeproc-js`.
+- **Mobile Support**: Works fully on Obsidian Mobile (iOS/Android) as well as desktop.
+- **Dual Sources**: Sync citations from a local `.bib` file or directly from your **Zotero** library (via Zotero's local API).
+- **Native DOCX Export**: Export notes to Microsoft Word `.docx` documents with formatted bibliography lists (generated in JS).
+- **Zotero PDF Link**: Click sidebar citations to open referenced PDFs directly in Zotero.
+
+## Installation
+
+1. Download the latest `obsidian-live-citations-0.9.0.zip` from [Releases](https://github.com/f10w3r/Obsidian-Live-Citations/releases).
+2. Extract it into your vault's plugin directory: `<vault>/.obsidian/plugins/obsidian-live-citations/`.
+3. Enable **Live Citations** in Obsidian Settings -> Community Plugins.
+
+## Usage
+
+1. Open the Command Palette (`Cmd/Ctrl + P`) and run `Live Citations: Show reference list` to open the sidebar.
+2. Insert Pandoc-style citekeys in your notes (e.g. `[@smith2023]`). The reference list will update live in the sidebar.
+3. To export the current note as a Word document, run `Live Citations: Export current file to DOCX` from the Command Palette.
+
+## Credits & Fork Info
+
+This plugin is a fork of [obsidian-pandoc-reference-list](https://github.com/obsidian-community/obsidian-pandoc-reference-list) by **mgmeyers**. We have removed the external Pandoc binary dependency and added mobile compatibility, Zotero API integration, and DOCX exporting natively in JS.
 
 ---
-
-Live formatted bibliography and reference list for Pandoc-style citations in your Obsidian sidebar. Fully compatible with both **desktop and mobile** platforms.
-
-This plugin scans the active document for citekeys (e.g., `@citekey` or `[@citekey]`) and renders a dynamically formatted, real-time bibliography list in a dedicated sidebar view.
-
-## 🚀 Key Features & Enhancements
-
-This repository is a customized version of the original `obsidian-pandoc-reference-list` plugin, adding several major features implemented natively in JS:
-
-- **Zero External Dependencies**: Unlike the original plugin, this version **does not require a local Pandoc installation**. All citation parsing, styling, and rendering are handled natively in the sandbox using JavaScript/TypeScript.
-- **Obsidian Mobile Support**: Thanks to the removal of the Pandoc executable dependency, this plugin is now fully compatible with **Obsidian Mobile** (iOS and Android).
-- **Native DOCX Export**: Supports exporting your notes into beautifully formatted Microsoft Word `.docx` documents, complete with compiled reference lists, generated directly in JS.
-- **Dual Bibliography Sources**: Read bibliography keys directly from a local `.bib` (BibTeX) file, or dynamically pull references from your **Zotero** database.
-- **Interactive Citations**: Click on references in the sidebar to open the corresponding PDF attachments in **Zotero** instantly.
-- **Dynamic CSL Styling**: Supports custom `.csl` style files (e.g., APA, Chicago, IEEE) to render your citations in any academic formatting style.
-
-## ⚙️ Requirements
-
-| Requirement | Details |
-|---|---|
-| **Obsidian** | Version `0.15.0` or higher |
-| **Zotero** *(Optional)* | Required only if you select Zotero as your library source or wish to open PDF files in Zotero. |
-
-> 💡 **No Pandoc installation is required** for any features of this plugin (including rendering, live updates, and DOCX exporting).
-
-## 🛠️ Setup & Usage
-
-### 1. Installation
-
-Install manually via the [Releases](https://github.com/f10w3r/Obsidian-Live-Citations/releases) page:
-
-1. Download the `obsidian-live-citations-0.9.0.zip` file from the latest release.
-2. Extract the archive into your Obsidian vault's plugins folder:  
-   `<YourVault>/.obsidian/plugins/obsidian-live-citations/`
-3. Go to **Settings → Community Plugins** inside Obsidian and enable **Live Citations**.
-
-### 2. Configuration
-
-Open **Settings → Live Citations** to configure:
-
-- **Bibliography Source**: Choose between **BibTeX File** (and specify the absolute path to your `.bib` library file) or **Zotero** database connection.
-- **CSL Style** *(Optional)*: Specify the path or URL to a `.csl` style file for custom citation formatting.
-
-### 3. Usage
-
-1. Open the **Command Palette** (`Ctrl+P` / `Cmd+P`).
-2. Run **`Live Citations: Show reference list`** to open the references sidebar.
-3. Write Pandoc-style citekeys in your notes (e.g. `According to studies [@smith2023]...`).
-4. The bibliography updates **live** in the sidebar as you type.
-
-### 4. Exporting to DOCX
-
-You can export your note directly into a formatted Microsoft Word `.docx` file containing the compiled bibliography list:
-1. Open the note you want to export.
-2. Open the **Command Palette** (`Ctrl+P` / `Cmd+P`).
-3. Run **`Live Citations: Export current file to DOCX`**.
-4. The plugin compiles your text, styles, and bibliography list entirely in JavaScript/TypeScript, saving a formatted `.docx` file in your vault next to the original note.
-
-
-## 🙏 Acknowledgements
-
-This plugin is a fork of [obsidian-pandoc-reference-list](https://github.com/obsidian-community/obsidian-pandoc-reference-list) by **mgmeyers**. The core parsing flow and interface skeleton are credited to the original author. This fork aims to provide a lightweight, cross-platform, dependency-free alternative that runs seamlessly on mobile and desktop alike.
-
----
-
-*Maintained by [Miguel Li](https://github.com/f10w3r). Licensed under GPL-3.0.*
+License: GPL-3.0 | Maintained by [Miguel Li](https://github.com/f10w3r)
