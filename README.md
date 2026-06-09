@@ -1,6 +1,6 @@
 # Live Citations
 
-> **Inspired by and forked from [obsidian-pandoc-reference-list](https://github.com/obsidian-community/obsidian-pandoc-reference-list).**  
+> **Inspired by [obsidian-pandoc-reference-list](https://github.com/obsidian-community/obsidian-pandoc-reference-list).**  
 > Special thanks to the original author **mgmeyers** and the Obsidian community for building the foundation that made this plugin possible.
 
 ---
