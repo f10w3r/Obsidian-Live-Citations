@@ -69,6 +69,21 @@ function parseBibliographyEntry(entryHtml: string, includeUrls = false): string 
   return stripped;
 }
 
+// Decodes named, decimal, and hexadecimal HTML entities
+function decodeHtmlEntities(str: string): string {
+  if (!str) return '';
+  return str
+    .replace(/&amp;/g, '&')
+    .replace(/&lt;/g, '<')
+    .replace(/&gt;/g, '>')
+    .replace(/&quot;/g, '"')
+    .replace(/&#39;/g, "'")
+    .replace(/&#38;/g, '&')
+    .replace(/&nbsp;/g, ' ')
+    .replace(/&#(\d+);/g, (_, dec) => String.fromCharCode(parseInt(dec, 10)))
+    .replace(/&#[xX]([0-9a-fA-F]+);/g, (_, hex) => String.fromCharCode(parseInt(hex, 16)));
+}
+
 // Format inline HTML in citation strings (e.g. <i>, <b>, <sup>, <sub>) into TextRun objects
 function parseTextToRuns(htmlText: string, size: number | undefined = 24, defaultBold = false, defaultItalics = false): TextRun[] {
   const runs: TextRun[] = [];
@@ -96,13 +111,7 @@ function parseTextToRuns(htmlText: string, size: number | undefined = 24, defaul
       }
     } else if (part) {
       // Decode HTML entities
-      const text = part
-        .replace(/&amp;/g, '&')
-        .replace(/&lt;/g, '<')
-        .replace(/&gt;/g, '>')
-        .replace(/&quot;/g, '"')
-        .replace(/&#39;/g, "'")
-        .replace(/&nbsp;/g, ' ');
+      const text = decodeHtmlEntities(part);
 
       const runOptions: any = {
         text,
@@ -128,12 +137,34 @@ function parseTextToRunsWithLinks(
   size: number | undefined = 24,
   defaultBold = false,
   defaultItalics = false,
-  citations?: RenderedCitation[]
+  citations?: RenderedCitation[],
+  linkedCitations = true
 ): any[] {
   const result: any[] = [];
   if (!htmlText) return result;
 
   const parts = htmlText.split(/(LIVECITEINDEX\d+)/g);
+
+  // Pre-process parts to remove spaces surrounding full-width citations
+  for (let i = 0; i < parts.length; i++) {
+    const match = parts[i].match(/^LIVECITEINDEX(\d+)$/);
+    if (match) {
+      const idx = parseInt(match[1], 10);
+      if (citations && citations[idx]) {
+        const citation = citations[idx];
+        const cleanVal = citation.val.replace(/<[^>]*>/g, '').trim();
+        const hasFullWidthStart = cleanVal.startsWith('（') || cleanVal.startsWith('［');
+        const hasFullWidthEnd = cleanVal.endsWith('）') || cleanVal.endsWith('］');
+        
+        if (hasFullWidthStart && i > 0) {
+          parts[i - 1] = parts[i - 1].replace(/\s+$/, '');
+        }
+        if (hasFullWidthEnd && i < parts.length - 1) {
+          parts[i + 1] = parts[i + 1].replace(/^\s+/, '');
+        }
+      }
+    }
+  }
 
   for (const part of parts) {
     const match = part.match(/^LIVECITEINDEX(\d+)$/);
@@ -141,7 +172,7 @@ function parseTextToRunsWithLinks(
       const idx = parseInt(match[1], 10);
       if (citations && citations[idx]) {
         const citation = citations[idx];
-        const anchor = citation.citations && citation.citations.length > 0
+        const anchor = linkedCitations && citation.citations && citation.citations.length > 0
           ? sanitizeBookmarkId(citation.citations[0].id)
           : '';
         const runs = parseTextToRuns(citation.val, size, defaultBold, defaultItalics);
@@ -164,18 +195,19 @@ function parseTextToRunsWithLinks(
 function mapInlineTokens(
   tokens: any[],
   state = { bold: false, italics: false, size: 24 as number | undefined },
-  citations?: RenderedCitation[]
+  citations?: RenderedCitation[],
+  linkedCitations = true
 ): any[] {
   const result: any[] = [];
   if (!tokens) return result;
 
   for (const token of tokens) {
     if (token.type === 'text') {
-      result.push(...parseTextToRunsWithLinks(token.text, state.size, state.bold, state.italics, citations));
+      result.push(...parseTextToRunsWithLinks(token.text, state.size, state.bold, state.italics, citations, linkedCitations));
     } else if (token.type === 'strong') {
-      result.push(...mapInlineTokens(token.tokens, { ...state, bold: true }, citations));
+      result.push(...mapInlineTokens(token.tokens, { ...state, bold: true }, citations, linkedCitations));
     } else if (token.type === 'em') {
-      result.push(...mapInlineTokens(token.tokens, { ...state, italics: true }, citations));
+      result.push(...mapInlineTokens(token.tokens, { ...state, italics: true }, citations, linkedCitations));
     } else if (token.type === 'codespan') {
       result.push(new TextRun({
         text: token.text,
@@ -190,15 +222,15 @@ function mapInlineTokens(
       }));
     } else if (token.type === 'link') {
       // Direct text mapping of links for simpler Word rendering
-      result.push(...mapInlineTokens(token.tokens, state, citations));
+      result.push(...mapInlineTokens(token.tokens, state, citations, linkedCitations));
     } else if (token.type === 'html') {
-      result.push(...parseTextToRunsWithLinks(token.text, state.size, state.bold, state.italics, citations));
+      result.push(...parseTextToRunsWithLinks(token.text, state.size, state.bold, state.italics, citations, linkedCitations));
     }
   }
   return result;
 }
 
-function mapListItem(item: any, prefixText: string, citations?: RenderedCitation[], fontSize = 24, lineSpacing = 276): Paragraph[] {
+function mapListItem(item: any, prefixText: string, citations?: RenderedCitation[], fontSize = 24, lineSpacing = 276, linkedCitations = true): Paragraph[] {
   const paragraphs: Paragraph[] = [];
   if (!item.tokens) return paragraphs;
 
@@ -206,7 +238,7 @@ function mapListItem(item: any, prefixText: string, citations?: RenderedCitation
   if (subParagraphs.length > 0) {
     subParagraphs.forEach((subPara: any, i: number) => {
       const children = subPara.tokens
-        ? mapInlineTokens(subPara.tokens, { bold: false, italics: false, size: fontSize }, citations)
+        ? mapInlineTokens(subPara.tokens, { bold: false, italics: false, size: fontSize }, citations, linkedCitations)
         : [new TextRun({ text: subPara.text, font: DEFAULT_FONT, size: fontSize })];
       if (i === 0) {
         children.unshift(new TextRun({ text: prefixText, font: DEFAULT_FONT, size: fontSize }));
@@ -214,20 +246,18 @@ function mapListItem(item: any, prefixText: string, citations?: RenderedCitation
       paragraphs.push(new Paragraph({
         children,
         indent: { left: 540, hanging: 360 },
-        spacing: { after: 60 },
-        lineSpacing: { line: lineSpacing },
+        spacing: { after: 60, line: lineSpacing, lineRule: 'auto' },
       }));
     });
   } else {
     const children = item.tokens
-      ? mapInlineTokens(item.tokens, { bold: false, italics: false, size: fontSize }, citations)
+      ? mapInlineTokens(item.tokens, { bold: false, italics: false, size: fontSize }, citations, linkedCitations)
       : [new TextRun({ text: item.text, font: DEFAULT_FONT, size: fontSize })];
     children.unshift(new TextRun({ text: prefixText, font: DEFAULT_FONT, size: fontSize }));
     paragraphs.push(new Paragraph({
       children,
       indent: { left: 540, hanging: 360 },
-      spacing: { after: 60 },
-      lineSpacing: { line: lineSpacing },
+      spacing: { after: 60, line: lineSpacing, lineRule: 'auto' },
     }));
   }
   return paragraphs;
@@ -275,12 +305,13 @@ export async function exportToDocx(app: App, file: TFile, plugin: any) {
     const bodyFontSizeDxa = bodyFontSizePt * 2;
     const lineSpacingMultiplier = plugin.settings.exportLineSpacing ?? 1.15;
     const lineSpacingValue = Math.round(lineSpacingMultiplier * 240);
+    const linkedCitations = plugin.settings.exportLinkedCitations ?? true;
 
     // 4. Map AST tokens to docx paragraphs
     for (const token of tokens) {
       if (token.type === 'heading') {
         const children = token.tokens
-          ? mapInlineTokens(token.tokens, { bold: false, italics: false, size: undefined }, cache.citations)
+          ? mapInlineTokens(token.tokens, { bold: false, italics: false, size: undefined }, cache.citations, linkedCitations)
           : [new TextRun({ text: token.text, font: DEFAULT_FONT })];
         docChildren.push(new Paragraph({
           children,
@@ -291,28 +322,26 @@ export async function exportToDocx(app: App, file: TFile, plugin: any) {
         }));
       } else if (token.type === 'paragraph') {
         const children = token.tokens
-          ? mapInlineTokens(token.tokens, { bold: false, italics: false, size: bodyFontSizeDxa }, cache.citations)
+          ? mapInlineTokens(token.tokens, { bold: false, italics: false, size: bodyFontSizeDxa }, cache.citations, linkedCitations)
           : [new TextRun({ text: token.text, font: DEFAULT_FONT, size: bodyFontSizeDxa })];
         docChildren.push(new Paragraph({
           children,
-          spacing: { after: 120 },
-          lineSpacing: { line: lineSpacingValue },
+          spacing: { after: 120, line: lineSpacingValue, lineRule: 'auto' },
         }));
       } else if (token.type === 'list') {
         const isOrdered = token.ordered;
         token.items.forEach((item: any, idx: number) => {
           const prefix = isOrdered ? `${idx + 1}.  ` : '•  ';
-          docChildren.push(...mapListItem(item, prefix, cache.citations, bodyFontSizeDxa, lineSpacingValue));
+          docChildren.push(...mapListItem(item, prefix, cache.citations, bodyFontSizeDxa, lineSpacingValue, linkedCitations));
         });
       } else if (token.type === 'blockquote') {
         const children = token.tokens
-          ? mapInlineTokens(token.tokens, { bold: false, italics: true, size: bodyFontSizeDxa }, cache.citations)
+          ? mapInlineTokens(token.tokens, { bold: false, italics: true, size: bodyFontSizeDxa }, cache.citations, linkedCitations)
           : [new TextRun({ text: token.text, italics: true, font: DEFAULT_FONT, size: bodyFontSizeDxa })];
         docChildren.push(new Paragraph({
           children,
           indent: { left: 720, right: 720 },
-          spacing: { before: 120, after: 120 },
-          lineSpacing: { line: lineSpacingValue },
+          spacing: { before: 120, after: 120, line: lineSpacingValue, lineRule: 'auto' },
         }));
       } else if (token.type === 'code') {
         docChildren.push(new Paragraph({
@@ -355,8 +384,7 @@ export async function exportToDocx(app: App, file: TFile, plugin: any) {
           ],
           // 2ch hanging indentation: left = bodyFontSizePt * 40, hanging = bodyFontSizePt * 40 dxa
           indent: { left: bodyFontSizePt * 40, hanging: bodyFontSizePt * 40 },
-          spacing: { after: 120 },
-          lineSpacing: { line: lineSpacingValue },
+          spacing: { after: 120, line: lineSpacingValue, lineRule: 'auto' },
         }));
       }
     }
@@ -371,8 +399,7 @@ export async function exportToDocx(app: App, file: TFile, plugin: any) {
               size: bodyFontSizeDxa, // default size
             },
             paragraph: {
-              lineSpacing: { line: lineSpacingValue }, // line spacing default
-              spacing: { after: 120 }, // Default space after paragraphs
+              spacing: { after: 120, line: lineSpacingValue, lineRule: 'auto' }, // default spacing and line spacing
             }
           }
         }

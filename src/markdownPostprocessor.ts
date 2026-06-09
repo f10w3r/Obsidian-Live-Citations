@@ -65,7 +65,16 @@ export function processCiteKeys(plugin: ReferenceList) {
         );
 
         if (rendered) {
-          const preCite = content.substring(pos, match[0].from);
+          let preCite = content.substring(pos, match[0].from);
+          
+          const cleanVal = rendered.val.replace(/<[^>]*>/g, '').trim();
+          const hasFullWidthStart = cleanVal.startsWith('（') || cleanVal.startsWith('［');
+          const hasFullWidthEnd = cleanVal.endsWith('）') || cleanVal.endsWith('］');
+          
+          if (hasFullWidthStart) {
+            preCite = preCite.replace(/\s+$/, '');
+          }
+
           const attr: Record<string, string> = {
             'data-citekey': rendered.citations.map((c) => c.id).join('|'),
             'data-source': ctx.sourcePath,
@@ -76,6 +85,11 @@ export function processCiteKeys(plugin: ReferenceList) {
           }
 
           pos = match[match.length - 1].to;
+          if (hasFullWidthEnd) {
+            while (pos < content.length && /\s/.test(content.charAt(pos))) {
+              pos++;
+            }
+          }
 
           frag.appendText(preCite);
           const span = frag.createSpan({

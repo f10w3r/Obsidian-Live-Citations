@@ -131,8 +131,55 @@ function decodeHtml(str: string) {
   return txt.value;
 }
 
+function processMixedCitationsText(text: string): string {
+  // Semicolons used in CSL grouping: full-width ； or half-width ;
+  const parts = text.split(/([；;])/);
+  
+  for (let i = 0; i < parts.length; i++) {
+    if (parts[i] === '；' || parts[i] === ';') {
+      continue;
+    }
+    
+    // If a citation part does not contain Chinese characters, replace full-width punctuation
+    const hasChinese = /[\u4e00-\u9fa5]/.test(parts[i]);
+    if (!hasChinese) {
+      parts[i] = parts[i]
+        .replace(/，/g, ', ')
+        .replace(/：/g, ': ')
+        .replace(/；/g, '; ')
+        .replace(/\s+/g, ' ');
+    }
+  }
+  
+  return parts.join('');
+}
+
+function fixMixedCitations(val: string): string {
+  if (!val) return '';
+  
+  const match = val.match(/^([（(［\[])(.*)([）)］\]])$/);
+  if (!match) {
+    return processMixedCitationsText(val);
+  }
+  
+  const openBracket = match[1];
+  const innerText = match[2];
+  const closeBracket = match[3];
+  
+  return openBracket + processMixedCitationsText(innerText) + closeBracket;
+}
+
 function sanitize(val: string) {
-  return decodeHtml(val.replace(/\[NO_PRINTED_FORM\] */g, ''));
+  let cleaned = decodeHtml(val.replace(/\[NO_PRINTED_FORM\] */g, ''));
+  // Strip spaces preceding full-width opening parentheses/brackets
+  cleaned = cleaned.replace(/\s+([（［])/g, '$1');
+  // Strip spaces following full-width closing parentheses/brackets
+  cleaned = cleaned.replace(/([）］])\s+/g, '$1');
+  
+  // Fix mixed Chinese/English punctuation
+  cleaned = fixMixedCitations(cleaned);
+  
+  return cleaned;
 }
 
 export function cite(engine: any, group: CitationGroup[]) {
