@@ -12,8 +12,8 @@ An Obsidian plugin for lightweight academic writing. Displays real-time formatte
 
 ## Installation
 
-1. Download the latest `obsidian-live-citations-0.9.0.zip` from [Releases](https://github.com/f10w3r/Obsidian-Live-Citations/releases).
-2. Extract it into your vault's plugin directory: `<vault>/.obsidian/plugins/obsidian-live-citations/`.
+1. Download the latest `live-citations-0.9.0.zip` from [Releases](https://github.com/f10w3r/Obsidian-Live-Citations/releases).
+2. Extract it into your vault's plugin directory: `<vault>/.obsidian/plugins/live-citations/`.
 3. Enable **Live Citations** in Obsidian Settings -> Community Plugins.
 
 ## Usage
