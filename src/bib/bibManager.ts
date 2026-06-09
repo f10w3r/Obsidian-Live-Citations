@@ -245,38 +245,26 @@ export class BibManager {
 
     const pluginSettings = this.plugin.settings;
     let style =
-      pluginSettings.cslStyleURL ??
+      settings.style ||
+      pluginSettings.cslStyleURL ||
       'https://raw.githubusercontent.com/citation-style-language/styles/master/apa.csl';
-    let lang = pluginSettings.cslLang ?? 'en-US';
+    let lang = settings.lang || pluginSettings.cslLang || 'en-US';
     let bibCache = this.bibCache;
     let fuse = this.fuse;
-    let langs = [settings.lang];
 
-    if (settings.style) {
-      try {
-        const isURL = /^http/.test(settings.style);
-        const styleObj = isURL
-          ? { id: settings.style }
-          : { id: settings.style, explicitPath: settings.style };
-        const styles = await this.loadStyles([styleObj]);
-        for (const styleStr of styles) {
-          langs = extractRawLocales(styleStr, settings.lang);
-        }
-        style = settings.style;
-      } catch (e) {
-        console.error(e);
-        return this;
-      }
-    }
+    const isCustomStyleURL = settings.style && /^http/.test(settings.style);
+    const explicitPath = isCustomStyleURL
+      ? undefined
+      : (settings.style || pluginSettings.cslStylePath);
 
-    if (settings.lang) {
-      try {
-        await this.loadLangs(langs);
-        lang = settings.lang;
-      } catch (e) {
-        console.error(e);
-        return this;
-      }
+    try {
+      await this.getLangAndStyle(lang, {
+        id: style,
+        explicitPath: explicitPath,
+      });
+    } catch (e) {
+      console.error(e);
+      return this;
     }
 
     if (settings.bibliography) {
@@ -591,7 +579,8 @@ export class BibManager {
     style: { id: string; explicitPath?: string }
   ) {
     let styles: string[] = [];
-    if (!this.styleCache.has(style.id)) {
+    const styleKey = style.explicitPath ?? style.id;
+    if (!this.styleCache.has(styleKey)) {
       try {
         styles = await this.loadStyles([style]);
       } catch (e) {
@@ -599,11 +588,15 @@ export class BibManager {
         this.initPromise.resolve();
         return;
       }
+    } else {
+      styles = [this.styleCache.get(styleKey)];
     }
 
     let locales = [lang];
     for (const styleStr of styles) {
-      locales = extractRawLocales(styleStr, lang);
+      if (styleStr) {
+        locales = extractRawLocales(styleStr, lang);
+      }
     }
 
     try {

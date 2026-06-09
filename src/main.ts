@@ -340,8 +340,8 @@ export default class ReferenceList extends Plugin {
         this.processReferences();
       }
     },
-    5000,
-    true
+    500,
+    false
   );
 
   processReferences = async () => {

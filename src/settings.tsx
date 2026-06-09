@@ -1,4 +1,4 @@
-import { Notice, PluginSettingTab, Setting, Modal, App, Platform, ButtonComponent } from 'obsidian';
+import { Notice, PluginSettingTab, Setting, Modal, App, Platform, ButtonComponent, debounce } from 'obsidian';
 
 import { t } from './lang/helpers';
 import ReferenceList from './main';
@@ -116,16 +116,21 @@ export class ReferenceListSettingsTab extends PluginSettingTab {
         text.inputEl.style.order = '2';
         text.inputEl.style.width = '100%';
         text.inputEl.style.maxWidth = '240px';
+
+        const debouncedSave = debounce((value: string) => {
+          const prev = this.plugin.settings.pathToBibliography;
+          this.plugin.settings.pathToBibliography = value;
+          this.plugin.saveSettings(() => {
+            this.plugin.bibManager.clearWatcher(prev);
+            this.plugin.bibManager.reinit(true);
+          });
+        }, 1000, false);
+
         text
           .setPlaceholder(t('Path to BibTex file'))
           .setValue(this.plugin.settings.pathToBibliography)
           .onChange((value) => {
-            const prev = this.plugin.settings.pathToBibliography;
-            this.plugin.settings.pathToBibliography = value;
-            this.plugin.saveSettings(() => {
-              this.plugin.bibManager.clearWatcher(prev);
-              this.plugin.bibManager.reinit(true);
-            });
+            debouncedSave(value);
           });
       });
 
@@ -320,14 +325,19 @@ export class ReferenceListSettingsTab extends PluginSettingTab {
         text.inputEl.style.order = '5';
         text.inputEl.style.width = '100%';
         text.inputEl.style.maxWidth = '362px';
+
+        const debouncedCSLSave = debounce((value: string) => {
+          this.plugin.settings.cslStylePath = value;
+          this.plugin.saveSettings(() =>
+            this.plugin.bibManager.reinit(false)
+          );
+        }, 1000, false);
+
         text
           .setPlaceholder(t('Path to CSL file'))
           .setValue(this.plugin.settings.cslStylePath)
           .onChange((value) => {
-            this.plugin.settings.cslStylePath = value;
-            this.plugin.saveSettings(() =>
-              this.plugin.bibManager.reinit(false)
-            );
+            debouncedCSLSave(value);
           });
       });
 
