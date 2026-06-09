@@ -27,11 +27,13 @@ export const DEFAULT_SETTINGS: ReferenceListSettings = {
   exportFontSize: 12,
   exportLineSpacing: 1.15,
   exportIncludeUrls: false,
-  pullFromZotero: false,
+  pullFromZotero: true,
   zoteroPort: DEFAULT_ZOTERO_PORT,
-  hideLinks: false,
+  hideLinks: true,
   showCitekeyTooltips: true,
   enableCiteKeyCompletion: true,
+  cslLang: 'en-GB',
+  cslStyleURL: 'https://raw.githubusercontent.com/citation-style-language/styles/master/apa.csl',
 };
 
 export interface ZoteroGroup {
