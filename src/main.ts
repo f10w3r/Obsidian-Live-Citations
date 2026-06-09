@@ -28,7 +28,7 @@ import { ReferenceListView, viewType } from './view';
 import { PromiseCapability, getVaultRoot } from './helpers';
 import { BibManager } from './bib/bibManager';
 import { CiteSuggest } from './citeSuggest/citeSuggest';
-import { isZoteroRunning } from './bib/helpers';
+import { isZoteroRunning, getZUserGroups } from './bib/helpers';
 
 export default class ReferenceList extends Plugin {
   settings: ReferenceListSettings;
@@ -62,8 +62,19 @@ export default class ReferenceList extends Plugin {
     this.emitter = new Events();
     this.bibManager = new BibManager(this);
     this.initPromise.promise
-      .then(() => {
+      .then(async () => {
         if (this.settings.pullFromZotero) {
+          if (!this.settings.zoteroGroups || this.settings.zoteroGroups.length === 0) {
+            try {
+              const groups = await getZUserGroups(this.settings.zoteroPort);
+              if (groups && groups.length > 0) {
+                this.settings.zoteroGroups = groups.map(g => ({ id: g.id, name: g.name }));
+                await this.saveData(this.settings);
+              }
+            } catch (e) {
+              console.warn('Failed to auto-configure Zotero groups', e);
+            }
+          }
           return this.bibManager.loadAndRefreshGlobalZBib();
         } else {
           return this.bibManager.loadGlobalBibFile();
@@ -298,7 +309,11 @@ export default class ReferenceList extends Plugin {
   }
 
   async loadSettings() {
-    this.settings = Object.assign({}, DEFAULT_SETTINGS, await this.loadData());
+    const loadedData = await this.loadData();
+    this.settings = Object.assign({}, DEFAULT_SETTINGS, loadedData);
+    if (this.settings.pathToBibliography && (!loadedData || loadedData.pullFromZotero === undefined)) {
+      this.settings.pullFromZotero = false;
+    }
   }
 
   async saveSettings(cb?: () => void) {
