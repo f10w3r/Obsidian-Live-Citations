@@ -24,6 +24,9 @@ export const DEFAULT_SETTINGS: ReferenceListSettings = {
   renderCitationsReadingMode: true,
   renderLinkCitations: true,
   cslSource: 'search',
+  exportFontSize: 12,
+  exportLineSpacing: 1.15,
+  exportIncludeUrls: false,
 };
 
 export interface ZoteroGroup {
@@ -51,6 +54,10 @@ export interface ReferenceListSettings {
   pullFromZotero?: boolean;
   zoteroPort?: string;
   zoteroGroups: ZoteroGroup[];
+
+  exportFontSize?: number;
+  exportLineSpacing?: number;
+  exportIncludeUrls?: boolean;
 }
 
 export class ReferenceListSettingsTab extends PluginSettingTab {
@@ -353,6 +360,17 @@ export class ReferenceListSettingsTab extends PluginSettingTab {
             new RenderingSettingsModal(this.app, this.plugin).open();
           })
       );
+
+    new Setting(containerEl)
+      .setName(t('Export'))
+      .setDesc(t('Convert to docx file.'))
+      .addButton((button) =>
+        button
+          .setButtonText(t('Export format settings'))
+          .onClick(() => {
+            new ExportSettingsModal(this.app, this.plugin).open();
+          })
+      );
   }
 }
 
@@ -371,7 +389,7 @@ class RenderingSettingsModal extends Modal {
 
     new Setting(contentEl)
       .setName(t('Hide links in references'))
-      .setDesc(t('Replace links with link icons to save space.'))
+      .setDesc(t('Replace link text with icons.'))
       .addToggle((text) =>
         text.setValue(!!this.plugin.settings.hideLinks).onChange((value) => {
           this.plugin.settings.hideLinks = value;
@@ -381,11 +399,7 @@ class RenderingSettingsModal extends Modal {
 
     new Setting(contentEl)
       .setName(t('Render live preview inline citations'))
-      .setDesc(
-        t(
-          'Convert [@pandoc] citations to formatted inline citations in live preview mode.'
-        )
-      )
+      .setDesc(t('Render formatted citations in live preview mode.'))
       .addToggle((text) =>
         text
           .setValue(!!this.plugin.settings.renderCitations)
@@ -397,11 +411,7 @@ class RenderingSettingsModal extends Modal {
 
     new Setting(contentEl)
       .setName(t('Render reading mode inline citations'))
-      .setDesc(
-        t(
-          'Convert [@pandoc] citations to formatted inline citations in reading mode.'
-        )
-      )
+      .setDesc(t('Render formatted citations in reading mode.'))
       .addToggle((text) =>
         text
           .setValue(!!this.plugin.settings.renderCitationsReadingMode)
@@ -413,11 +423,7 @@ class RenderingSettingsModal extends Modal {
 
     new Setting(contentEl)
       .setName(t('Process citations in links'))
-      .setDesc(
-        t(
-          'Include [[@pandoc]] citations in the reference list and format them as inline citations in live preview mode.'
-        )
-      )
+      .setDesc(t('Support citations wrapped in wiki-links (e.g. [[@citekey]]).'))
       .addToggle((text) =>
         text
           .setValue(!!this.plugin.settings.renderLinkCitations)
@@ -429,11 +435,7 @@ class RenderingSettingsModal extends Modal {
 
     new Setting(contentEl)
       .setName(t('Show citekey suggestions'))
-      .setDesc(
-        t(
-          'When enabled, an autocomplete dialog will display when typing citation keys.'
-        )
-      )
+      .setDesc(t('Show autocomplete list when typing citation keys.'))
       .addToggle((text) =>
         text
           .setValue(!!this.plugin.settings.enableCiteKeyCompletion)
@@ -445,11 +447,7 @@ class RenderingSettingsModal extends Modal {
 
     new Setting(contentEl)
       .setName(t('Show citekey tooltips'))
-      .setDesc(
-        t(
-          'When enabled, hovering over citekeys will open a tooltip containing a formatted citation.'
-        )
-      )
+      .setDesc(t('Show hover tooltips for citation keys.'))
       .addToggle((text) =>
         text
           .setValue(!!this.plugin.settings.showCitekeyTooltips)
@@ -461,11 +459,7 @@ class RenderingSettingsModal extends Modal {
 
     new Setting(contentEl)
       .setName(t('Tooltip delay'))
-      .setDesc(
-        t(
-          'Set the amount of time (in milliseconds) to wait before displaying tooltips.'
-        )
-      )
+      .setDesc(t('Delay before showing tooltips (in ms).'))
       .addSlider((slider) => {
         slider
           .setDynamicTooltip()
@@ -473,6 +467,75 @@ class RenderingSettingsModal extends Modal {
           .setValue(this.plugin.settings.tooltipDelay)
           .onChange((value) => {
             this.plugin.settings.tooltipDelay = value;
+            this.plugin.saveSettings();
+          });
+      });
+  }
+
+  onClose() {
+    const { contentEl } = this;
+    contentEl.empty();
+  }
+}
+
+class ExportSettingsModal extends Modal {
+  plugin: ReferenceList;
+
+  constructor(app: App, plugin: ReferenceList) {
+    super(app);
+    this.plugin = plugin;
+  }
+
+  onOpen() {
+    const { contentEl } = this;
+    contentEl.empty();
+    contentEl.createEl('h2', { text: t('Export format settings') });
+
+    // 1. Body font size
+    new Setting(contentEl)
+      .setName(t('Body font size'))
+      .addDropdown((dropdown) => {
+        dropdown
+          .addOption('9', '9 pt')
+          .addOption('10', '10 pt')
+          .addOption('10.5', '10.5 pt')
+          .addOption('11', '11 pt')
+          .addOption('12', '12 pt')
+          .addOption('14', '14 pt')
+          .addOption('16', '16 pt')
+          .setValue(String(this.plugin.settings.exportFontSize ?? 12))
+          .onChange((value) => {
+            this.plugin.settings.exportFontSize = parseFloat(value) || 12;
+            this.plugin.saveSettings();
+          });
+      });
+
+    // 2. Line spacing
+    new Setting(contentEl)
+      .setName(t('Line spacing'))
+      .addDropdown((dropdown) => {
+        dropdown
+          .addOption('1', '1.0')
+          .addOption('1.15', '1.15')
+          .addOption('1.25', '1.25')
+          .addOption('1.3', '1.3')
+          .addOption('1.5', '1.5')
+          .addOption('2', '2.0')
+          .setValue(String(this.plugin.settings.exportLineSpacing ?? 1.15))
+          .onChange((value) => {
+            this.plugin.settings.exportLineSpacing = parseFloat(value) || 1.15;
+            this.plugin.saveSettings();
+          });
+      });
+
+    // 3. Include URLs in reference list
+    new Setting(contentEl)
+      .setName(t('Include URLs in reference list'))
+      .addToggle((toggle) => {
+        toggle
+          .setValue(!!this.plugin.settings.exportIncludeUrls)
+          .onChange((value) => {
+            this.plugin.settings.exportIncludeUrls = value;
             this.plugin.saveSettings();
           });
       });

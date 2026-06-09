@@ -1,7 +1,7 @@
 {
-  "name": "obsidian-sample-plugin",
-  "version": "1.0.0",
-  "description": "This is a sample plugin for Obsidian (https://obsidian.md)",
+  "name": "obsidian-live-citations",
+  "version": "0.9.0",
+  "description": "Live formatted bibliography and reference list for Pandoc citations in the sidebar. Supports BibTeX, CSL, and Zotero integration.",
   "main": "main.js",
   "scripts": {
     "dev": "node esbuild.config.mjs",
@@ -17,7 +17,7 @@
     "release": "git commit -m $npm_package_version && git tag $npm_package_version && git push && git push --tags"
   },
   "keywords": [],
-  "author": "Miguel Fumin Li",
+  "author": "Miguel Li",
   "license": "MIT",
   "devDependencies": {
     "@babel/core": "7.17.9",
@@ -41,7 +41,8 @@
     "obsidian": "1.2.8",
     "tslib": "2.3.1",
     "typescript": "4.4.4",
-    "xml-js": "1.6.11"
+    "xml-js": "1.6.11",
+    "@types/marked": "^4.3.0"
   },
   "dependencies": {
     "biblatex-csl-converter": "^3.6.0",
@@ -57,7 +58,9 @@
     "react-select": "5.7.3",
     "shell-path": "3.0.0",
     "text-clipper": "^2.2.0",
-    "which": "2.0.2"
+    "which": "2.0.2",
+    "docx": "^8.2.0",
+    "marked": "^4.3.0"
   },
   "jest": {
     "transformIgnorePatterns": [],

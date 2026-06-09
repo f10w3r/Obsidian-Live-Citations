@@ -94,6 +94,23 @@ export default class ReferenceList extends Plugin {
       },
     });
 
+    this.addCommand({
+      id: 'export-to-docx',
+      name: t('Export current file to DOCX'),
+      checkCallback: (checking: boolean) => {
+        const activeView = this.app.workspace.getActiveViewOfType(MarkdownView);
+        if (activeView) {
+          if (!checking) {
+            import('./docxExporter').then(({ exportToDocx }) => {
+              exportToDocx(this.app, activeView.file, this);
+            });
+          }
+          return true;
+        }
+        return false;
+      },
+    });
+
     document.body.toggleClass(
       'pwc-tooltips',
       !!this.settings.showCitekeyTooltips
